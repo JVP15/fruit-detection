@@ -1,5 +1,7 @@
 import cv2
 
+MIN_BOUNDING_BOX_SIZE = 0.15
+
 def square_bounding_box(bounding_box):
     """Makes a bounding box square, modifying the original bounding box.
     Assumes that the values are normalized between 0 and 1."""
@@ -38,3 +40,12 @@ def square_bounding_box(bounding_box):
     bounding_box['ymin'] = ymin
     bounding_box['xmax'] = xmax
     bounding_box['ymax'] = ymax
+
+def preprocess_frame_for_detection(frame):
+    """Preprocesses the frame for Yolo-v5 inference"""
+    # right now, we are loading the Yolo-v5 model with Autoshape, so there isn't much to preprocess
+
+    # convert to RGB
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    return frame
+
