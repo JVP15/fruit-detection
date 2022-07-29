@@ -11,8 +11,7 @@ class FruitDetectionModule(object):
     def get_bounding_boxes(self, img: np.array) -> List[dict]:
         """Generates bounding boxes around every fruit in the image. Returns a list of bounding boxes.
         Each row is a bounding box, represented by a dictionary with keys {'xmin', 'ymin', 'xmax', 'ymax', 'name'}
-        The x and y values are pixel coordinates, not normalized values like the input to Yolo-v5. N
-        name refers to the class name (e.g. 'apple')
+        The x and y values are  normalized values like the input to Yolo-v5. Name refers to the class name (e.g. 'apple')
         """
 
         predictions = self.model(img)
