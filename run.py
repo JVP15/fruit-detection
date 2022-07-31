@@ -1,3 +1,5 @@
+import time
+
 import cv2
 import argparse
 import torch
@@ -7,10 +9,11 @@ import preprocessor
 
 from detection import FruitDetectionModule
 from disease import DiseaseModule
+from ripeness import RipenessModule
 
 DEFAULT_SOURCE = 0
 DEFAULT_DETECTION_WEIGHTS = 'weights/detection/best.pt'
-DEFAULT_RIPENESS_WEIGHTS = 'weights/ripeness/best.pt'
+DEFAULT_RIPENESS_WEIGHTS = 'weights/ripeness/mobilenetv2'
 DEFAULT_DISEASE_WEIGHTS = 'weights/disease/resnet'
 DEFAULT_MIN_BOUNDING_BOX_SIZE = 0.15
 
@@ -23,28 +26,26 @@ def run(source = DEFAULT_SOURCE,
         **kwargs):
 
     num_gpus = torch.cuda.device_count()
-    if num_gpus >= 3:
-        detection_gpu = 'cuda:0'
-        ripeness_gpu = 'cuda:1'
-        disease_gpu = '/GPU:2'
-    elif num_gpus == 2:
-        detection_gpu = 'cuda:0'
-        ripeness_gpu = 'cuda:1'
+
+    detection_gpu = 'cuda:0'
+    ripeness_gpu = '/GPU:0'
+    disease_gpu = '/GPU:0'
+
+    if num_gpus >= 2:
+        ripeness_gpu = '/GPU:1'
         disease_gpu = '/GPU:1'
-    else:
-        detection_gpu = 'cuda:0'
-        ripeness_gpu = 'cuda:0'
-        disease_gpu = '/GPU:0'
+    if num_gpus >= 3:
+        disease_gpu = '/GPU:2'
 
     preprocessor.MIN_BOUNDING_BOX_SIZE = min_bounding_box_size
 
     detection_module = FruitDetectionModule(detection_weights, device=detection_gpu)
-    # ripeness = Ripeness(ripeness_weights, device=ripeness_gpu)
+    ripeness_module = RipenessModule(ripeness_weights, device=ripeness_gpu)
     disease_module = DiseaseModule(disease_weights, device=disease_gpu)
 
     # if the source is an int, then it points to a camera, otherwise, it points to a video file
     cap = cv2.VideoCapture(source)
-    #cap = cv2.VideoCapture('dataset/images/test/apple_%01d.jpg', cv2.CAP_IMAGES)
+    #cap = cv2.VideoCapture('dataset/images/test/image_%01d.png', cv2.CAP_IMAGES)
 
     if not cap.isOpened():
         print(f'Could not open video source {source}', file=sys.stderr)
@@ -55,15 +56,18 @@ def run(source = DEFAULT_SOURCE,
     detection_input = preprocessor.preprocess_frame_for_detection(frame)
     bounding_boxes = detection_module.get_bounding_boxes(detection_input)
 
-    while cap.isOpened():
+    start = time.time()
+    num_frames = 0
+    while cap.isOpened() and num_frames < 60:
+        num_frames += 1
         localized_fruit = preprocessor.localize_fruit(frame, bounding_boxes)
 
-        # ripenesses = preprocessor.get_ripeness(frame, localized_fruit)
+        ripenesses = ripeness_module.get_ripeness_predictions(localized_fruit)
         diseases = disease_module.get_disease_predictions(localized_fruit)
 
-        # preprocessor.prepare_output(frame, bounding_boxes, ripeness, diseases)
-        for bounding_box, disease_pred in zip(bounding_boxes, diseases):
-            print('Class', bounding_box['class'], 'Confidence', bounding_box['conf'], 'Disease', disease_pred)
+        for bounding_box, ripeness_pred, disease_pred in zip(bounding_boxes, ripenesses, diseases):
+            if not bounding_box['ignore']:
+                print('Class', bounding_box['class'], 'Confidence', bounding_box['conf'], 'Disease', disease_pred, 'Ripeness', ripeness_pred)
         print()
 
         ret, frame = cap.read()
@@ -74,7 +78,8 @@ def run(source = DEFAULT_SOURCE,
         detection_input = preprocessor.preprocess_frame_for_detection(frame)
         bounding_boxes = detection_module.get_bounding_boxes(detection_input)
 
-    print('')
+    duration = time.time() - start
+    print(f'Processed {num_frames} frames in {duration} seconds for {num_frames / duration} FPS')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

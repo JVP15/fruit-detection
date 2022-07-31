@@ -66,7 +66,10 @@ def localize_fruit(frame: np.ndarray, bounding_boxes: List[dict]) -> tf.Tensor:
 
         # make sure that the bounding box is large enough
         if bounding_box['xmax'] - bounding_box['xmin'] < MIN_BOUNDING_BOX_SIZE or bounding_box['ymax'] - bounding_box['ymin'] < MIN_BOUNDING_BOX_SIZE:
-            pass #TODO: right now, keep all of the bounding boxes that are too small, but later on, we'll want to remove them
+            bounding_box['ignore'] = True # if it isn't large enough, mark it as ignored
+            continue
+
+        bounding_box['ignore'] = False
 
         # get the bounding box coordinates
         xmin = bounding_box['xmin'] * w

@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from torch.utils.data import Dataset, ConcatDataset, random_split
 
-DATASET_DIR = 'datasets'
+DATASET_DIR = 'dataset'
 
 FRUIT_NAME = ['apple', 'papaya', 'pineapple']
 
@@ -45,7 +45,7 @@ def save_dataset(dataset, image_folder, label_folder):
     for i, (img_path, boxes) in tqdm(enumerate(dataset), total=len(dataset), desc=f'Saving dataset to {image_folder} and {label_folder}'):
         img_extension = img_path.split('.')[-1]
         img_dest = os.path.join(image_folder, f'image_{i}.{img_extension}')
-        label_dest = os.path.join(label_folder, f'label_{i}.txt')
+        label_dest = os.path.join(label_folder, f'image_{i}.txt')
 
         # moving the file instead of copying it to save disk space
         shutil.move(img_path, img_dest)
@@ -115,8 +115,10 @@ class MinneappleDataset(Dataset):
     def __init__(self, dataset_dir=DATASET_DIR):
         self.dataset_dir = dataset_dir
 
+        self.detection_dir = os.path.join(self.dataset_dir, 'detection')
         # only the training folder has masks, so we have to ignore the test folder
-        self.minneapple_dir = os.path.join(self.dataset_dir, 'detection', 'train')
+        self.minneapple_dir = os.path.join(self.detection_dir, 'train')
+        self.zip_file = os.path.join(self.dataset_dir, 'detection.tar.gz')
 
         if not os.path.exists(self.minneapple_dir):
             get_dataset(name='Minneapple', url=self.download_url, output_dir=self.dataset_dir)
@@ -161,7 +163,11 @@ class MinneappleDataset(Dataset):
             xmax = np.clip(xmax, a_min=0, a_max=self.w) / self.w
             ymin = np.clip(ymin, a_min=0, a_max=self.h) / self.h
             ymax = np.clip(ymax, a_min=0, a_max=self.h) / self.h
-            boxes.append({'class': 0, 'x': xmin, 'y': ymin, 'w': xmax - xmin, 'h': ymax - ymin})
+
+            # it also expects the x and y values to represent the center of the bounding box
+            x = (xmin + xmax) / 2
+            y = (ymin + ymax) / 2
+            boxes.append({'class': 0, 'x': x, 'y': y, 'w': xmax - xmin, 'h': ymax - ymin})
 
         bounding_boxes = pd.DataFrame(boxes)
 
@@ -179,7 +185,7 @@ class MinneappleDataset(Dataset):
         return img_path, self.mask_to_bounding_box(mask_path)
 
     def clean(self, remove_zip=False):
-        shutil.rmtree(self.minneapple_dir)
+        shutil.rmtree(self.detection_dir)
         if remove_zip:
             os.remove(self.zip_file)
 
