@@ -3,6 +3,9 @@ import numpy as np
 import tensorflow as tf
 from typing import List
 
+import ripeness
+import disease
+
 MIN_BOUNDING_BOX_SIZE = 0.15
 LOCALIZED_IMAGE_SIZE = (224, 224)
 
@@ -90,5 +93,43 @@ def localize_fruit(frame: np.ndarray, bounding_boxes: List[dict]) -> tf.Tensor:
     localized_fruits = tf.stack(localized_fruits)
 
     return localized_fruits
+
+def prepare_output_frame(input_frame, bounding_boxes, ripenesses, diseases, ui='confidence'):
+    frame = input_frame.copy()
+    h, w, _ = frame.shape
+
+    # loop through the bounding boxes and draw them, the ripeness + confidence and the disease + confidence
+    for box, ripeness_pred, disease_pred in zip(bounding_boxes, ripenesses, diseases):
+        if box['ignore']:
+            color = (0, 0, 0)
+        else:
+            color = (0, 0, 255)
+
+        # get the bounding box coordinates
+        xmin = box['xmin'] * w
+        ymin = box['ymin'] * h
+        xmax = box['xmax'] * w
+        ymax = box['ymax'] * h
+
+        # get the ripeness and disease predictions
+        ripeness_class = ripeness.classnames[ripeness_pred[0]]
+        ripeness_confidence = ripeness_pred[1]
+
+        disease_class = disease.classnames[disease_pred[0]]
+        disease_confidence = disease_pred[1]
+
+        # draw the bounding box
+        cv2.rectangle(frame, (int(xmin), int(ymin)), (int(xmax), int(ymax)), color, 2)
+        # display the class name and corresponding confidence
+        cv2.putText(frame, f'{box["class"]} {box["conf"]:.2f}', (int(xmin), int(ymin)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+
+        # display the ripeness and disease predictions and confidence
+        if not box['ignore']:
+            cv2.putText(frame, f'{ripeness_class} {ripeness_confidence:.2f}', (int(xmin), int(ymin) + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+            cv2.putText(frame, f'{disease_class} {disease_confidence:.2f}', (int(xmin), int(ymin) + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+
+        # TODO: add support for the other UI
+
+    return frame
 
 

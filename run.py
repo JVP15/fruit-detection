@@ -44,8 +44,8 @@ def run(source = DEFAULT_SOURCE,
     disease_module = DiseaseModule(disease_weights, device=disease_gpu)
 
     # if the source is an int, then it points to a camera, otherwise, it points to a video file
-    cap = cv2.VideoCapture(source)
-    #cap = cv2.VideoCapture('dataset/images/test/image_%01d.png', cv2.CAP_IMAGES)
+    #cap = cv2.VideoCapture(source)
+    cap = cv2.VideoCapture('dataset/images/test/image_%01d.png', cv2.CAP_IMAGES)
 
     if not cap.isOpened():
         print(f'Could not open video source {source}', file=sys.stderr)
@@ -56,19 +56,14 @@ def run(source = DEFAULT_SOURCE,
     detection_input = preprocessor.preprocess_frame_for_detection(frame)
     bounding_boxes = detection_module.get_bounding_boxes(detection_input)
 
-    start = time.time()
-    num_frames = 0
-    while cap.isOpened() and num_frames < 60:
-        num_frames += 1
+    while cap.isOpened():
+
         localized_fruit = preprocessor.localize_fruit(frame, bounding_boxes)
 
         ripenesses = ripeness_module.get_ripeness_predictions(localized_fruit)
         diseases = disease_module.get_disease_predictions(localized_fruit)
 
-        for bounding_box, ripeness_pred, disease_pred in zip(bounding_boxes, ripenesses, diseases):
-            if not bounding_box['ignore']:
-                print('Class', bounding_box['class'], 'Confidence', bounding_box['conf'], 'Disease', disease_pred, 'Ripeness', ripeness_pred)
-        print()
+        display_frame = preprocessor.prepare_output_frame(frame, bounding_boxes, ripenesses, diseases)
 
         ret, frame = cap.read()
 
@@ -78,8 +73,10 @@ def run(source = DEFAULT_SOURCE,
         detection_input = preprocessor.preprocess_frame_for_detection(frame)
         bounding_boxes = detection_module.get_bounding_boxes(detection_input)
 
-    duration = time.time() - start
-    print(f'Processed {num_frames} frames in {duration} seconds for {num_frames / duration} FPS')
+        cv2.imshow('image', display_frame)
+        cv2.waitKey(30)
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
