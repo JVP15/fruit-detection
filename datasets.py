@@ -2,6 +2,7 @@ import os
 import zipfile
 import tarfile
 import shutil
+import cv2
 
 import numpy as np
 import pandas as pd
@@ -17,7 +18,7 @@ FRUIT_NAME = ['apple', 'papaya', 'pineapple']
 
 def get_dataset(name, url, output_dir, replace=False):
     """
-    Downloads the dataset from the and extracts it to the output directory.
+    Downloads the dataset from the source and extracts it to the output directory.
     If the compressed dataset file already exists, it will not be downloaded again unless replace=True
     """
 
@@ -30,10 +31,10 @@ def get_dataset(name, url, output_dir, replace=False):
 
     print(f'Extracting {name} dataset...')
 
-    if  filename.endswith('.zip'):
+    if filename.endswith('.zip'):
         with zipfile.ZipFile(filename, 'r') as zip_ref:
             zip_ref.extractall(output_dir)
-    elif  filename.endswith('.tar.gz'):
+    elif filename.endswith('.tar.gz'):
         with tarfile.open(filename, 'r:gz') as tar_ref:
             tar_ref.extractall(output_dir)
     else:
@@ -47,8 +48,23 @@ def save_dataset(dataset, image_folder, label_folder):
         img_dest = os.path.join(image_folder, f'image_{i}.{img_extension}')
         label_dest = os.path.join(label_folder, f'image_{i}.txt')
 
-        # moving the file instead of copying it to save disk space
-        shutil.move(img_path, img_dest)
+        if img_path.startswith('_UPPER_'):
+            img_path = img_path[7:]
+
+            img = cv2.imread(img_path)
+            h, w, _ = img.shape
+            img = img[:h//2]
+            cv2.imwrite(img_dest, img)
+        elif img_path.startswith('_LOWER_'):
+            img_path = img_path[7:]
+
+            img = cv2.imread(img_path)
+            h, w, _ = img.shape
+            img = img[h//2:]
+            cv2.imwrite(img_dest, img)
+        else:
+            shutil.move(img_path, img_dest)
+
         boxes.to_csv(label_dest, sep=' ', header=False, index=False)
 
 class MultifruitDataset(Dataset):
@@ -93,6 +109,7 @@ class MultifruitDataset(Dataset):
     def __getitem__(self, idx):
         img_name = self.imgs[idx]
         annotation_name = self.annotations[idx]
+
         img_path = os.path.join(self.multifruit_dir, 'apples', 'images', img_name)
         annotation_path = os.path.join(self.multifruit_dir, 'apples', 'annotations', annotation_name)
 
@@ -129,7 +146,7 @@ class MinneappleDataset(Dataset):
         self.h = 1280
         self.w = 720
 
-    def mask_to_bounding_box(self, mask_path):
+    def mask_to_bounding_box(self, mask_path, idx):
         # Each color of mask corresponds to a different instance with 0 being the background
         mask = Image.open(
             mask_path)
@@ -164,6 +181,25 @@ class MinneappleDataset(Dataset):
             ymin = np.clip(ymin, a_min=0, a_max=self.h) / self.h
             ymax = np.clip(ymax, a_min=0, a_max=self.h) / self.h
 
+            # for even indices, only keep bounding boxes in the upper half of the image
+            if idx % 2 == 0:
+                if ymin > 0.5:
+                    continue
+                elif ymax > 0.5:
+                    ymax = 0.5
+
+                ymin *= 2
+                ymax *= 2
+            # for odd indices, only keep bounding boxes in the lower half of the image
+            else:
+                if ymax < 0.5:
+                    continue
+                elif ymin < 0.5:
+                    ymin = 0.5
+
+                ymin = (ymin - .5) * 2
+                ymax = (ymax - .5) * 2
+
             # it also expects the x and y values to represent the center of the bounding box
             x = (xmin + xmax) / 2
             y = (ymin + ymax) / 2
@@ -174,15 +210,23 @@ class MinneappleDataset(Dataset):
         return bounding_boxes
 
     def __len__(self):
-        return len(self.imgs)
+        return len(self.imgs) * 2 # for an upper and lower half of the image
 
     def __getitem__(self, idx):
-        img_name = self.imgs[idx]
-        mask_name = self.masks[idx]
+        image_index = idx // 2
+        if idx % 2 == 0:
+            half = '_UPPER_'
+        else:
+            half = '_LOWER_'
+
+        img_name = self.imgs[image_index]
+        mask_name = self.masks[image_index]
         img_path = os.path.join(self.minneapple_dir, 'images', img_name)
+        img_path = half + img_path
+
         mask_path = os.path.join(self.minneapple_dir, 'masks', mask_name)
 
-        return img_path, self.mask_to_bounding_box(mask_path)
+        return img_path, self.mask_to_bounding_box(mask_path, idx)
 
     def clean(self, remove_zip=False):
         shutil.rmtree(self.detection_dir)
@@ -204,7 +248,8 @@ if __name__ == '__main__':
     os.makedirs(image_test_dir, exist_ok=True)
     os.makedirs(label_test_dir, exist_ok=True)
 
-    datasets = [MultifruitDataset(), MinneappleDataset()]
+    #datasets = [MultifruitDataset(), MinneappleDataset()]
+    datasets = [MinneappleDataset()] # right now, just doing minneapple dataset
 
     yolov5_dataset = ConcatDataset(datasets)
 

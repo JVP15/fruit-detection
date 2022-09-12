@@ -15,7 +15,7 @@ DEFAULT_SOURCE = 0
 DEFAULT_DETECTION_WEIGHTS = 'weights/detection/best.pt'
 DEFAULT_RIPENESS_WEIGHTS = 'weights/ripeness/mobilenetv2'
 DEFAULT_DISEASE_WEIGHTS = 'weights/disease/resnet'
-DEFAULT_MIN_BOUNDING_BOX_SIZE = 0.15
+DEFAULT_MIN_BOUNDING_BOX_SIZE = 0.1
 
 
 def run(source = DEFAULT_SOURCE,
@@ -74,7 +74,7 @@ def run(source = DEFAULT_SOURCE,
         bounding_boxes = detection_module.get_bounding_boxes(detection_input)
 
         cv2.imshow('image', display_frame)
-        cv2.waitKey(30)
+        cv2.waitKey(1)
 
 
 

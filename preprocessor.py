@@ -68,9 +68,9 @@ def localize_fruit(frame: np.ndarray, bounding_boxes: List[dict]) -> tf.Tensor:
         square_bounding_box(bounding_box)
 
         # make sure that the bounding box is large enough
-        if bounding_box['xmax'] - bounding_box['xmin'] < MIN_BOUNDING_BOX_SIZE or bounding_box['ymax'] - bounding_box['ymin'] < MIN_BOUNDING_BOX_SIZE:
-            bounding_box['ignore'] = True # if it isn't large enough, mark it as ignored
-            continue
+        # if bounding_box['xmax'] - bounding_box['xmin'] < MIN_BOUNDING_BOX_SIZE or bounding_box['ymax'] - bounding_box['ymin'] < MIN_BOUNDING_BOX_SIZE:
+        #     bounding_box['ignore'] = True # if it isn't large enough, mark it as ignored
+        #     continue
 
         bounding_box['ignore'] = False
 
@@ -121,12 +121,12 @@ def prepare_output_frame(input_frame, bounding_boxes, ripenesses, diseases, ui='
         # draw the bounding box
         cv2.rectangle(frame, (int(xmin), int(ymin)), (int(xmax), int(ymax)), color, 2)
         # display the class name and corresponding confidence
-        cv2.putText(frame, f'{box["class"]} {box["conf"]:.2f}', (int(xmin), int(ymin)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+        cv2.putText(frame, f'{box["class"]} {box["conf"]:.2f}', (int(xmin), int(ymin)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
         # display the ripeness and disease predictions and confidence
         if not box['ignore']:
-            cv2.putText(frame, f'{ripeness_class} {ripeness_confidence:.2f}', (int(xmin), int(ymin) + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
-            cv2.putText(frame, f'{disease_class} {disease_confidence:.2f}', (int(xmin), int(ymin) + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+            cv2.putText(frame, f'{ripeness_class} {ripeness_confidence:.2f}', (int(xmin), int(ymin) - 18), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+            cv2.putText(frame, f'{disease_class} {disease_confidence:.2f}', (int(xmin), int(ymin) - 36), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
         # TODO: add support for the other UI
 
