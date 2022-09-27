@@ -3,8 +3,7 @@ import numpy as np
 import tensorflow as tf
 from typing import List
 
-import ripeness
-import disease
+from modules import ripeness, disease
 
 MIN_BOUNDING_BOX_SIZE = 0.15
 LOCALIZED_IMAGE_SIZE = (224, 224)
@@ -52,8 +51,8 @@ def preprocess_frame_for_detection(frame):
     """Preprocesses the frame for Yolo-v5 inference"""
     # right now, we are loading the Yolo-v5 model with Autoshape, so there isn't much to preprocess
 
-    # convert to RGB
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    # convert to RGB and uint8
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).astype(np.uint8)
     return frame
 
 def localize_fruit(frame: np.ndarray, bounding_boxes: List[dict]) -> tf.Tensor:
@@ -68,9 +67,9 @@ def localize_fruit(frame: np.ndarray, bounding_boxes: List[dict]) -> tf.Tensor:
         square_bounding_box(bounding_box)
 
         # make sure that the bounding box is large enough
-        # if bounding_box['xmax'] - bounding_box['xmin'] < MIN_BOUNDING_BOX_SIZE or bounding_box['ymax'] - bounding_box['ymin'] < MIN_BOUNDING_BOX_SIZE:
-        #     bounding_box['ignore'] = True # if it isn't large enough, mark it as ignored
-        #     continue
+        if bounding_box['xmax'] - bounding_box['xmin'] < MIN_BOUNDING_BOX_SIZE or bounding_box['ymax'] - bounding_box['ymin'] < MIN_BOUNDING_BOX_SIZE:
+            bounding_box['ignore'] = True # if it isn't large enough, mark it as ignored
+            continue
 
         bounding_box['ignore'] = False
 
@@ -98,12 +97,11 @@ def prepare_output_frame(input_frame, bounding_boxes, ripenesses, diseases, ui='
     frame = input_frame.copy()
     h, w, _ = frame.shape
 
-    # loop through the bounding boxes and draw them, the ripeness + confidence and the disease + confidence
-    for box, ripeness_pred, disease_pred in zip(bounding_boxes, ripenesses, diseases):
-        if box['ignore']:
-            color = (0, 0, 0)
-        else:
-            color = (0, 0, 255)
+    # keep track of the index of the ripeness and disease predictions separately b/c some bounding boxes may be ignored
+    pred_index = 0
+
+    # loop through the bounding boxes and draw them
+    for box in bounding_boxes:
 
         # get the bounding box coordinates
         xmin = box['xmin'] * w
@@ -111,24 +109,58 @@ def prepare_output_frame(input_frame, bounding_boxes, ripenesses, diseases, ui='
         xmax = box['xmax'] * w
         ymax = box['ymax'] * h
 
-        # get the ripeness and disease predictions
-        ripeness_class = ripeness.classnames[ripeness_pred[0]]
-        ripeness_confidence = ripeness_pred[1]
+        if ui == 'confidence':
+            if box['ignore']:
+                color = (0, 0, 0)
+            else:
+                color = (0, 0, 255)
 
-        disease_class = disease.classnames[disease_pred[0]]
-        disease_confidence = disease_pred[1]
+            # draw the bounding box
+            cv2.rectangle(frame, (int(xmin), int(ymin)), (int(xmax), int(ymax)), color, 2)
+            # display the class name and corresponding confidence
+            cv2.putText(frame, f'{box["class"]} {box["conf"]:.2f}', (int(xmin), int(ymin)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-        # draw the bounding box
-        cv2.rectangle(frame, (int(xmin), int(ymin)), (int(xmax), int(ymax)), color, 2)
-        # display the class name and corresponding confidence
-        cv2.putText(frame, f'{box["class"]} {box["conf"]:.2f}', (int(xmin), int(ymin)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+            # don't display ripeness or disease if the bounding box is too small
+            if box['ignore']:
+                continue
 
-        # display the ripeness and disease predictions and confidence
-        if not box['ignore']:
+            ripeness_pred = ripenesses[pred_index]
+            disease_pred = diseases[pred_index]
+            pred_index += 1
+
+            # get the ripeness and disease predictions
+            ripeness_class = ripeness.classnames[ripeness_pred[0]]
+            ripeness_confidence = ripeness_pred[1]
+
+            disease_class = disease.classnames[disease_pred[0]]
+            disease_confidence = disease_pred[1]
+
             cv2.putText(frame, f'{ripeness_class} {ripeness_confidence:.2f}', (int(xmin), int(ymin) - 18), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
             cv2.putText(frame, f'{disease_class} {disease_confidence:.2f}', (int(xmin), int(ymin) - 36), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-        # TODO: add support for the other UI
+        elif ui == 'harvestability':
+            # don't display anything if the bounding box is too small
+            if box['ignore']:
+                continue
+
+            ripeness_pred = ripenesses[pred_index]
+            disease_pred = diseases[pred_index]
+            pred_index += 1
+
+            # if the fruit is not healthy, draw a red bounding box
+            if disease_pred[0] == 0:
+                color = (0, 0, 255)
+            # if the fruit is healthy, but unripe, draw a yellow bounding box
+            elif ripeness_pred == 0:
+                color = (0, 255, 0)
+            # if the fruit is healthy and ripe, draw a green bounding box
+            else:
+                color = (0, 255, 255)
+
+            # draw the bounding box
+            cv2.rectangle(frame, (int(xmin), int(ymin)), (int(xmax), int(ymax)), color, 2)
+            # draw the name of the fruit
+            cv2.putText(frame, f'{box["class"]}', (int(xmin), int(ymin)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
     return frame
 
