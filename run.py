@@ -75,7 +75,10 @@ def run(source = DEFAULT_SOURCE,
             display_frame = preprocessor.prepare_output_frame(frame, bounding_boxes, ripenesses, diseases, ui=display)
             view.update(display_frame)
             events, values = view.get_event()
-            view.set_display(events)
+            view.process_events(events, values)
+
+            if view.quit:
+                break
 
         ret, frame = cap.read()
 
@@ -84,9 +87,6 @@ def run(source = DEFAULT_SOURCE,
 
         detection_input = preprocessor.preprocess_frame_for_detection(frame)
         bounding_boxes = detection_module.get_bounding_boxes(detection_input)
-
-    if view.started:
-        view.close()
 
 
 if __name__ == "__main__":
