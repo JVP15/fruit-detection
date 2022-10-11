@@ -5,7 +5,7 @@ import cv2
 
 class View:
     menu_def = [['&File', ['Open Video File', 'Open Camera', 'E&xit']],
-                ['&View', ['&Confidence View', '&Harvestability View']]
+                ['&View', ['!Confidence View', 'Harvestability View']]
                 ]
 
     def __init__(self):
@@ -22,7 +22,7 @@ class View:
             self.has_image = True
             layout = [
                 [sg.Image(data=imgbytes, key='--IMAGE--')],
-                [sg.Menu(self.menu_def, tearoff=False, pad=(200, 1))],
+                [sg.Menu(self.menu_def, tearoff=False, pad=(200, 1), key='--MENU--')],
             ]
 
             # we have to create a new window to update the layout, so we close the old one first to make way for the new one
@@ -38,7 +38,7 @@ class View:
             [sg.VPush()],
             [sg.Push(), sg.Text('Loading Models...', font=('Any', 28)), sg.Push()],
             [sg.VPush()],
-            [sg.Menu(self.menu_def, tearoff=False, pad=(200, 1), key='MENU')],
+            [sg.Menu(self.menu_def, tearoff=False, pad=(200, 1), key='--MENU--')],
         ]
         self.window = sg.Window('Fruit Detection', layout, size=(400, 400))
         _ = self.window.read(timeout=0)
@@ -56,9 +56,15 @@ class View:
     def process_events(self, events, values):
         if events == 'Confidence View':
             self.display = 'confidence'
+            self.menu_def[1][1][0] = '!Confidence View'
+            self.menu_def[1][1][1] = 'Harvestability View'
+            self.window['--MENU--'].update(self.menu_def)
         elif events == 'Harvestability View':
             self.display = 'harvestability'
-            # TODO: update menu bar based on currently selected view
+            self.menu_def[1][1][0] = 'Confidence View'
+            self.menu_def[1][1][1] = '!Harvestability View'
+            self.window['--MENU--'].update(self.menu_def)
+
         elif events == 'Exit' or None:
             self.close()
         # TODO: handle camera and video file events
