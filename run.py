@@ -15,7 +15,7 @@ from modules.view import View
 DEFAULT_SOURCE = None
 DEFAULT_DETECTION_WEIGHTS = 'weights/detection/best.pt'
 DEFAULT_RIPENESS_WEIGHTS = 'weights/ripeness/mobilenetv2'
-DEFAULT_DISEASE_WEIGHTS = 'weights/disease/resnet'
+DEFAULT_DISEASE_WEIGHTS = 'weights/disease/efficientnetb4'
 DEFAULT_MIN_BOUNDING_BOX_SIZE = 0.1
 DEFAULT_GUI = False
 DEFAULT_DISPLAY = 'confidence'
@@ -32,6 +32,7 @@ def run(source = DEFAULT_SOURCE,
     if source is None and not use_gui:
         raise ValueError('No source specified. Please either specify a source or use the GUI.')
 
+    cap = None
     if source is not None:
         cap = cv2.VideoCapture(source)
 
@@ -102,7 +103,7 @@ def run(source = DEFAULT_SOURCE,
                 cap2 = cv2.VideoCapture(view.source)
 
                 if cap2 is not None and cap2.isOpened():
-                    if cap.isOpened(): # close the old video capture if it was open
+                    if cap is not None and cap.isOpened(): # close the old video capture if it was open
                         cap.release()
                     cap = cap2
                     source = view.source
