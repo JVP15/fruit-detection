@@ -8,14 +8,14 @@ import sys
 from modules import preprocessor
 
 from modules.detection import FruitDetectionModule
-from modules.disease import DiseaseModule
+from modules.defect import DefectModule
 from modules.ripeness import RipenessModule
 from modules.view import View
 
 DEFAULT_SOURCE = None
 DEFAULT_DETECTION_WEIGHTS = 'weights/detection/best.pt'
 DEFAULT_RIPENESS_WEIGHTS = 'weights/ripeness/mobilenetv2'
-DEFAULT_DISEASE_WEIGHTS = 'weights/disease/efficientnetb4'
+DEFAULT_DEFECT_WEIGHTS = 'weights/disease/efficientnetb4'
 DEFAULT_MIN_BOUNDING_BOX_SIZE = 0.1
 DEFAULT_GUI = False
 DEFAULT_DISPLAY = 'confidence'
@@ -23,7 +23,7 @@ DEFAULT_DISPLAY = 'confidence'
 def run(source = DEFAULT_SOURCE,
         detection_weights= DEFAULT_DETECTION_WEIGHTS,
         ripeness_weights = DEFAULT_RIPENESS_WEIGHTS,
-        disease_weights = DEFAULT_DISEASE_WEIGHTS,
+        defect_weights = DEFAULT_DEFECT_WEIGHTS,
         min_bounding_box_size = DEFAULT_MIN_BOUNDING_BOX_SIZE,
         use_gui = DEFAULT_GUI,
         **kwargs):
@@ -43,13 +43,13 @@ def run(source = DEFAULT_SOURCE,
 
     detection_gpu = 'cuda:0'
     ripeness_gpu = '/GPU:0'
-    disease_gpu = '/GPU:0'
+    defect_gpu = '/GPU:0'
 
     if num_gpus >= 2:
         ripeness_gpu = '/GPU:1'
-        disease_gpu = '/GPU:1'
+        defect_gpu = '/GPU:1'
     if num_gpus >= 3:
-        disease_gpu = '/GPU:2'
+        defect_gpu = '/GPU:2'
 
     preprocessor.MIN_BOUNDING_BOX_SIZE = min_bounding_box_size
 
@@ -60,7 +60,7 @@ def run(source = DEFAULT_SOURCE,
     # init the pretrained networks
     detection_module = FruitDetectionModule(detection_weights, device=detection_gpu)
     ripeness_module = RipenessModule(ripeness_weights, device=ripeness_gpu)
-    disease_module = DiseaseModule(disease_weights, device=disease_gpu)
+    defect_module = DefectModule(defect_weights, device=defect_gpu)
 
     if use_gui:
         view.update_source(source)
@@ -70,13 +70,18 @@ def run(source = DEFAULT_SOURCE,
     while not view.quit:
 
         if source is not None:
-            ret, frame = cap.read()
-            if not ret and use_gui:
-                source = None
-                view.update_source(source)
-                continue
-            elif not ret:
-                break
+            # sometimes, a source will be an image, so we need to treat it differently
+            if source.lower().endswith('.jpg') or source.endswith('.png') or source.endswith('.jpeg'):
+
+                frame = cv2.imread(source)
+            else:
+                ret, frame = cap.read()
+                if not ret and use_gui:
+                    source = None
+                    view.update_source(source)
+                    continue
+                elif not ret:
+                    break
 
             detection_input = preprocessor.preprocess_frame_for_detection(frame)
             bounding_boxes = detection_module.get_bounding_boxes(detection_input)
@@ -84,13 +89,13 @@ def run(source = DEFAULT_SOURCE,
             localized_fruit = preprocessor.localize_fruit(frame, bounding_boxes)
 
             ripenesses = ripeness_module.get_ripeness_predictions(localized_fruit)
-            diseases = disease_module.get_disease_predictions(localized_fruit)
+            defects = defect_module.get_disease_predictions(localized_fruit)
 
         if use_gui:
             display = view.get_display()
 
             if source is not None:
-                display_frame = preprocessor.prepare_output_frame(frame, bounding_boxes, ripenesses, diseases, ui=display)
+                display_frame = preprocessor.prepare_output_frame(frame, bounding_boxes, ripenesses, defects, ui=display)
                 view.update_image(display_frame)
 
             events, values = view.get_event()
@@ -116,7 +121,7 @@ if __name__ == "__main__":
     parser.add_argument('--source', default=DEFAULT_SOURCE, help='Path to video file or camera index')
     parser.add_argument('--detection-weights', default=DEFAULT_DETECTION_WEIGHTS, help='Path to detection weights')
     parser.add_argument('--ripeness-weights', default=DEFAULT_RIPENESS_WEIGHTS, help='Path to ripeness weights')
-    parser.add_argument('--disease-weights', default=DEFAULT_DISEASE_WEIGHTS, help='Path to disease weights')
+    parser.add_argument('--disease-weights', default=DEFAULT_DEFECT_WEIGHTS, help='Path to disease weights')
     parser.add_argument('--min-bounding-box-size', default=DEFAULT_MIN_BOUNDING_BOX_SIZE, help='Minimum size of a bounding box before it is checked for ripeness and diseases')
     parser.add_argument('--use_gui', action='store_true', help='whether to use the gui or not')
     args = parser.parse_args()

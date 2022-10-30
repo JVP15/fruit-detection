@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 from typing import List
 
-from modules import ripeness, disease
+from modules import ripeness, defect
 
 MIN_BOUNDING_BOX_SIZE = 0.15
 LOCALIZED_IMAGE_SIZE = (224, 224)
@@ -85,6 +85,9 @@ def localize_fruit(frame: np.ndarray, bounding_boxes: List[dict]) -> tf.Tensor:
         # resize the image to the size that the disease and ripeness models expect
         cropped_image = cv2.resize(cropped_image, LOCALIZED_IMAGE_SIZE)
 
+        # convert to float32 and normalize
+        cropped_image = cropped_image.astype(np.float32) / 255.0
+
         # add to the list of localized fruits
         localized_fruits.append(cropped_image)
 
@@ -93,7 +96,7 @@ def localize_fruit(frame: np.ndarray, bounding_boxes: List[dict]) -> tf.Tensor:
 
     return localized_fruits
 
-def prepare_output_frame(input_frame, bounding_boxes, ripenesses, diseases, ui='confidence'):
+def prepare_output_frame(input_frame, bounding_boxes, ripenesses, defects, ui='confidence'):
     frame = input_frame.copy()
     h, w, _ = frame.shape
 
@@ -125,15 +128,15 @@ def prepare_output_frame(input_frame, bounding_boxes, ripenesses, diseases, ui='
                 continue
 
             ripeness_pred = ripenesses[pred_index]
-            disease_pred = diseases[pred_index]
+            defect_pred = defects[pred_index]
             pred_index += 1
 
             # get the ripeness and disease predictions
             ripeness_class = ripeness.classnames[ripeness_pred[0]]
             ripeness_confidence = ripeness_pred[1]
 
-            disease_class = disease.classnames[disease_pred[0]]
-            disease_confidence = disease_pred[1]
+            disease_class = defect.classnames[defect_pred[0]]
+            disease_confidence = defect_pred[1]
 
             cv2.putText(frame, f'{ripeness_class} {ripeness_confidence:.2f}', (int(xmin), int(ymin) - 18), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
             cv2.putText(frame, f'{disease_class} {disease_confidence:.2f}', (int(xmin), int(ymin) - 36), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
@@ -144,18 +147,18 @@ def prepare_output_frame(input_frame, bounding_boxes, ripenesses, diseases, ui='
                 continue
 
             ripeness_pred = ripenesses[pred_index]
-            disease_pred = diseases[pred_index]
+            disease_pred = defects[pred_index]
             pred_index += 1
 
-            # if the fruit is not healthy, draw a red bounding box
+            # if the fruit is not healthy, draw a red bounding box (unhealthy is 0, healthy is 1)
             if disease_pred[0] == 0:
                 color = (0, 0, 255)
-            # if the fruit is healthy, but unripe, draw a yellow bounding box
-            elif ripeness_pred == 0:
-                color = (0, 255, 0)
+            # if the fruit is healthy, but unripe, draw a yellow bounding box (0 is unripe, 1 is ripe)
+            elif ripeness_pred[0] == 0:
+                color = (0, 255, 255)
             # if the fruit is healthy and ripe, draw a green bounding box
             else:
-                color = (0, 255, 255)
+                color = (0, 255, 0)
 
             # draw the bounding box
             cv2.rectangle(frame, (int(xmin), int(ymin)), (int(xmax), int(ymax)), color, 2)

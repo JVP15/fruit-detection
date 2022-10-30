@@ -12,11 +12,15 @@ from tqdm import tqdm
 
 import xml.etree.ElementTree as ET
 
-from torch.utils.data import Dataset, ConcatDataset, random_split, DataLoader
+from torch.utils.data import Dataset, ConcatDataset
 
-DATASET_DIR = 'dataset'
+DATASET_DIR = '../dataset'
 
 FRUIT_NAME = ['apple', 'papaya', 'mango']
+
+def list_files(*directory):
+    """Lists all the files in the given directory (or list of folder names) in sorted order"""
+    return list(sorted(os.listdir(os.path.join(*directory))))
 
 def download_dataset(name, url, output_dir, zip_file, replace=False):
     """Downloads the dataset from the source, or does nothing if replace=False and the dataset already exists"""
@@ -67,6 +71,7 @@ def save_dataset(dataset, image_folder, label_folder):
 
         boxes.to_csv(label_dest, sep=' ', header=False, index=False)
 
+
 class MultifruitDataset(Dataset):
 
     download_url = 'https://data.acfr.usyd.edu.au/ag/treecrops/2016-multifruit/acfr-multifruit-2016.zip'
@@ -83,13 +88,15 @@ class MultifruitDataset(Dataset):
             extract_dataset('Multifruit', self.zip_file, self.dataset_dir)
 
         # sort the filenames so that the images are in the same order as the annotations
-        self.apple_imgs = list(sorted(os.listdir(os.path.join(self.multifruit_dir, 'apples', 'images'))))
-        self.apple_annotations = list(sorted(os.listdir(os.path.join(self.multifruit_dir, 'apples', 'annotations'))))
+        self.apple_imgs = list_files(self.multifruit_dir, 'apples', 'images') #list(sorted(os.listdir(os.path.join(self.multifruit_dir, 'apples', 'images'))))
+        self.apple_annotations = list_files(self.multifruit_dir, 'apples', 'annotations') #list(sorted(os.listdir(os.path.join(self.multifruit_dir, 'apples', 'annotations'))))
         self.apple_h = 202
         self.apple_w = 308
 
-        self.mango_imgs = list(sorted(os.listdir(os.path.join(self.multifruit_dir, 'mangoes', 'images'))))
-        self.mango_annotations = list(sorted(os.listdir(os.path.join(self.multifruit_dir, 'mangoes', 'annotations'))))
+        #self.mango_imgs = list(sorted(os.listdir(os.path.join(self.multifruit_dir, 'mangoes', 'images'))))
+        #self.mango_annotations = list(sorted(os.listdir(os.path.join(self.multifruit_dir, 'mangoes', 'annotations'))))
+        self.mango_imgs = list_files(self.multifruit_dir, 'mangoes', 'images')
+        self.mango_annotations = list_files(self.multifruit_dir, 'mangoes', 'annotations')
         self.mango_h = 500
         self.mango_w = 500
 
@@ -352,7 +359,7 @@ class PapayaDataset(Dataset):
 
         if not os.path.exists(self.papaya_dir):
             if not os.path.exists(self.zip_file):
-                raise Exception('Papaya dataset not found. You must manually download it, rename it "papaya_object_detection.zip", and place it in the datasets folder.')
+                raise FileNotFoundError('Papaya dataset not found. You must manually download it, rename it "papaya_object_detection.zip", and place it in the datasets folder.')
 
             extract_dataset('Papaya', self.zip_file, self.dataset_dir)
 
@@ -380,6 +387,90 @@ class PapayaDataset(Dataset):
         print('Papaya Dataset cleaned.')
 
 
+class RipenessDataset(Dataset):
+    """
+    This dataset acts as a Pytorch interface for the ripeness dataset.
+    We use it when we're creating the synthetic dataset.
+    """
+
+    def __init__(self, dataset_dir=DATASET_DIR):
+        self.dataset_dir = dataset_dir
+        self.data_dir = os.path.join(self.dataset_dir, 'ripeness_dataset')
+        self.ripeness_dir = os.path.join(self.data_dir, 'data')
+        self.zip_file = os.path.join(self.dataset_dir, 'ripeness_dataset.zip')
+
+        if not os.path.exists(self.ripeness_dir):
+            if not os.path.exists(self.zip_file):
+                raise FileNotFoundError('Ripeness dataset not found. You must manually download it, rename it "ripeness_dataset.zip", and place it in the datasets folder.')
+
+            extract_dataset('Ripeness', self.zip_file, self.dataset_dir)
+
+        # we may want to use the fruit class of each image for later, so we'll keep the images separate
+        self.unripe_apple_imgs = list_files(self.ripeness_dir, 'Unripe_Apples')
+        self.unripe_mango_imgs = list_files(self.ripeness_dir, 'Unripe_Mango')
+        self.unripe_papaya_imgs = list_files(self.ripeness_dir, 'Unripe_Papaya')
+
+        self.ripe_apple_imgs = list_files(self.ripeness_dir, 'Ripe_Apples')
+        self.ripe_mango_imgs = list_files(self.ripeness_dir, 'Ripe_Mango')
+        self.ripe_papaya_imgs = list_files(self.ripeness_dir, 'Ripe_Papaya')
+
+        self.unripe_imgs = self.unripe_apple_imgs + self.unripe_mango_imgs + self.unripe_papaya_imgs
+        self.ripe_imgs = self.ripe_apple_imgs + self.ripe_mango_imgs + self.ripe_papaya_imgs
+
+    def __len__(self):
+        return len(self.unripe_imgs) + len(self.ripe_imgs)
+
+    def __getitem__(self, idx):
+        if idx < len(self.unripe_imgs):
+            img_path = self.unripe_imgs[idx]
+            label = 0
+        else:
+            img_path = self.ripe_imgs[idx - len(self.unripe_imgs)]
+            label = 1
+
+        return img_path, label
+
+    def clean(self, remove_zip=False):
+        shutil.rmtree(self.data_dir)
+        if remove_zip:
+            os.remove(self.zip_file)
+
+        print('Ripeness Dataset cleaned.')
+
+class DefectDataset(Dataset):
+    """
+    This dataset acts as a Pytorch interface for the ripeness dataset.
+    We use it when we're creating the synthetic dataset.
+    """
+
+    def __init__(self, dataset_dir=DATASET_DIR):
+        self.dataset_dir = dataset_dir
+        self.data_dir = os.path.join(self.dataset_dir, 'defect_dataset')
+        self.defect_dir = os.path.join(self.data_dir, 'dataset_for_all_3_fruits')
+        self.zip_file = os.path.join(self.dataset_dir, 'defect_dataset.zip')
+
+        if not os.path.exists(self.defect_dir):
+            if not os.path.exists(self.zip_file):
+                raise FileNotFoundError('Defect dataset not found. You must manually download it, rename it "defect_dataset.zip", and place it in the datasets folder.')
+
+            extract_dataset('Defect', self.zip_file, self.dataset_dir)
+
+        self.defect_imgs = list_files(self.defect_dir, 'defected')
+        self.normal_imgs = list_files(self.defect_dir, 'normal')
+
+    def __len__(self):
+        return len(self.defect_imgs) + len(self.normal_imgs)
+
+    def __getitem__(self, idx):
+        if idx < len(self.defect_imgs):
+            img_path = self.defect_imgs[idx]
+            label = 0
+        else:
+            img_path = self.normal_imgs[idx - len(self.defect_imgs)]
+            label = 1
+
+        return img_path, label
+
 if __name__ == '__main__':
     image_train_dir = os.path.join(DATASET_DIR, 'images', 'train')
     label_train_dir = os.path.join(DATASET_DIR, 'labels', 'train')
@@ -404,8 +495,10 @@ if __name__ == '__main__':
     train_dataset = []
     test_dataset = []
 
-    # (Wang, Tang, & Whitty 2022)
-    num_training_objects = [4000, 1000, 4000]
+    # (Wang, Tang, & Whitty 2022), we get diminishing returns for using more than 1000 annotated objects
+    # although since we only have ~1800 papaya objects, we may as well use 80% for training and 20% for testing
+    # TODO: turn this into a train/val/test set
+    num_training_objects = [4000, 1500, 4000]
     num_training_objects_per_fruit = [0, 0, 0]
     num_testing_objects_per_fruit = [0, 0, 0]
     empty_images_in_train = 0
@@ -435,12 +528,6 @@ if __name__ == '__main__':
             train_dataset.append((img_path, bounding_boxes))
             num_training_objects_per_fruit[fruit] += num_objects
 
-    # test_percent = .2
-    # train_size = int(len(yolov5_dataset) * (1 - test_percent))
-    # test_size = len(yolov5_dataset) - train_size
-
-    # train_dataset, test_dataset = random_split(yolov5_dataset, [train_size, test_size])
-
     save_dataset(train_dataset, image_train_dir, label_train_dir)
     save_dataset(test_dataset, image_test_dir, label_test_dir)
 
@@ -448,7 +535,3 @@ if __name__ == '__main__':
         print(f'{FRUIT_NAME[i]}: {num_training_objects_per_fruit[i]} training objects, {num_testing_objects_per_fruit[i]} testing objects')
 
     print(f'{empty_images_in_train} empty images in training set, {empty_images_in_test} empty images in test set')
-
-    # remove the dataset folder to save space, but keep the zip file
-    # for dataset in datasets:
-    #     dataset.clean()

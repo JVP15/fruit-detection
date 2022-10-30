@@ -8,3 +8,9 @@ test:  # test images (optional)
 nc: 3  # number of classes
 names: [ 'apple', 'papaya', 'mango']  # class names
 
+
+#apple: 4001 training objects, 30947 testing objects
+#papaya: 1517 training objects, 372 testing objects
+#mango: 4002 training objects, 18344 testing objects
+#542 empty images in training set, 146 empty images in test set
+
