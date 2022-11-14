@@ -5,7 +5,6 @@ from typing import List
 
 from modules import ripeness, defect
 
-MIN_BOUNDING_BOX_SIZE = 0.15
 LOCALIZED_IMAGE_SIZE = (224, 224)
 
 def square_bounding_box(bounding_box):
@@ -55,32 +54,41 @@ def preprocess_frame_for_detection(frame):
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).astype(np.uint8)
     return frame
 
-def localize_fruit(frame: np.ndarray, bounding_boxes: List[dict]) -> tf.Tensor:
+def localize_fruit(frame: np.ndarray, bounding_boxes: List[dict], min_bounding_box_size) -> tf.Tensor:
     """Localizes the fruit in the frame and collects it into a batch of images for the disease and ripeness models
-    Expects the bounding boxes to have normalized coordinates (0 to 1) instead of pixel coordinates"""
+    Expects the bounding boxes to have normalized coordinates (0 to 1).
+    Adds a 'small' field to the bounding boxes if the box is too small to localize."""
     h, w, _ = frame.shape
 
     localized_fruits = []
 
     for bounding_box in bounding_boxes:
-        # make sure that the bounding box is square
-        square_bounding_box(bounding_box)
 
         # make sure that the bounding box is large enough
-        if bounding_box['xmax'] - bounding_box['xmin'] < MIN_BOUNDING_BOX_SIZE or bounding_box['ymax'] - bounding_box['ymin'] < MIN_BOUNDING_BOX_SIZE:
-            bounding_box['ignore'] = True # if it isn't large enough, mark it as ignored
+        if bounding_box['xmax'] - bounding_box['xmin'] < min_bounding_box_size or bounding_box['ymax'] - bounding_box['ymin'] < min_bounding_box_size:
+            bounding_box['small'] = True # if it isn't large enough, mark it as ignored
             continue
-
-        bounding_box['ignore'] = False
+        else:
+            bounding_box['small'] = False
 
         # get the bounding box coordinates
-        xmin = bounding_box['xmin'] * w
-        ymin = bounding_box['ymin'] * h
-        xmax = bounding_box['xmax'] * w
-        ymax = bounding_box['ymax'] * h
+        xmin = int(bounding_box['xmin'] * w)
+        ymin = int(bounding_box['ymin'] * h)
+        xmax = int(bounding_box['xmax'] * w)
+        ymax = int(bounding_box['ymax'] * h)
 
         # get the cropped image
-        cropped_image = frame[int(ymin):int(ymax), int(xmin):int(xmax)]
+        cropped_image = frame[ymin:ymax, xmin:xmax]
+
+        cropped_w, cropped_h = xmin - xmax, ymin - ymax
+
+        # pad the image with white pixels to make it square
+        if cropped_w > cropped_h:
+            pad = (cropped_w - cropped_h) // 2
+            cropped_image = cv2.copyMakeBorder(cropped_image, pad, pad, 0, 0, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+        elif cropped_h > cropped_w:
+            pad = (cropped_h - cropped_w) // 2
+            cropped_image = cv2.copyMakeBorder(cropped_image, 0, 0, pad, pad, cv2.BORDER_CONSTANT, value=[0, 0, 0])
 
         # resize the image to the size that the disease and ripeness models expect
         cropped_image = cv2.resize(cropped_image, LOCALIZED_IMAGE_SIZE)
@@ -96,12 +104,9 @@ def localize_fruit(frame: np.ndarray, bounding_boxes: List[dict]) -> tf.Tensor:
 
     return localized_fruits
 
-def prepare_output_frame(input_frame, bounding_boxes, ripenesses, defects, ui='confidence'):
+def prepare_output_frame(input_frame, bounding_boxes, ui='confidence'):
     frame = input_frame.copy()
     h, w, _ = frame.shape
-
-    # keep track of the index of the ripeness and disease predictions separately b/c some bounding boxes may be ignored
-    pred_index = 0
 
     # loop through the bounding boxes and draw them
     for box in bounding_boxes:
@@ -112,8 +117,11 @@ def prepare_output_frame(input_frame, bounding_boxes, ripenesses, defects, ui='c
         xmax = box['xmax'] * w
         ymax = box['ymax'] * h
 
+        ripeness_pred = box['ripeness']
+        defect_pred = box['defect']
+
         if ui == 'confidence':
-            if box['ignore']:
+            if box['small']:
                 color = (0, 0, 0)
             else:
                 color = (0, 0, 255)
@@ -124,12 +132,8 @@ def prepare_output_frame(input_frame, bounding_boxes, ripenesses, defects, ui='c
             cv2.putText(frame, f'{box["class"]} {box["conf"]:.2f}', (int(xmin), int(ymin)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
             # don't display ripeness or disease if the bounding box is too small
-            if box['ignore']:
+            if box['small']:
                 continue
-
-            ripeness_pred = ripenesses[pred_index]
-            defect_pred = defects[pred_index]
-            pred_index += 1
 
             # get the ripeness and disease predictions
             ripeness_class = ripeness.classnames[ripeness_pred[0]]
@@ -143,15 +147,11 @@ def prepare_output_frame(input_frame, bounding_boxes, ripenesses, defects, ui='c
 
         elif ui == 'harvestability':
             # don't display anything if the bounding box is too small
-            if box['ignore']:
+            if box['small']:
                 continue
 
-            ripeness_pred = ripenesses[pred_index]
-            disease_pred = defects[pred_index]
-            pred_index += 1
-
             # if the fruit is not healthy, draw a red bounding box (unhealthy is 0, healthy is 1)
-            if disease_pred[0] == 0:
+            if defect_pred[0] == 0:
                 color = (0, 0, 255)
             # if the fruit is healthy, but unripe, draw a yellow bounding box (0 is unripe, 1 is ripe)
             elif ripeness_pred[0] == 0:

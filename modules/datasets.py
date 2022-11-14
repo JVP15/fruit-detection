@@ -18,7 +18,7 @@ DATASET_DIR = '../dataset'
 
 FRUIT_NAME = ['apple', 'papaya', 'mango']
 
-def list_files(*directory):
+def list_files(*directory) -> list[str]:
     """Lists all the files in the given directory (or list of folder names) in sorted order"""
     return list(sorted(os.listdir(os.path.join(*directory))))
 
@@ -43,6 +43,7 @@ def extract_dataset(name, filename, output_dir):
         raise ValueError(f'Cannot extract dataset file. Unknown file type: {filename}')
 
     print(f'{name} dataset extracted.')
+
 
 def save_dataset(dataset, image_folder, label_folder):
 
@@ -71,6 +72,26 @@ def save_dataset(dataset, image_folder, label_folder):
 
         boxes.to_csv(label_dest, sep=' ', header=False, index=False)
 
+def save_classification_dataset(dataset, save_folder, classes):
+    """This function saves a classification dataset (most likely one created using the synthetic dataset) to the disk.
+    The dataset is a list of tuples, where the first element is the path to the image, and the second element is the label.
+    The save_folder is the folder where the images will be saved (e.g. 'dataset/ripeness').
+    The classes is a list of the classes (e.g. ['unripe', 'ripe'])."""
+
+    for class_name in classes:
+        os.makedirs(os.path.join(save_folder, class_name), exist_ok=True)
+
+    for i, (img, class_index) in tqdm(enumerate(dataset), total=len(dataset), desc=f'Saving dataset to {save_folder}'):
+        class_name = classes[class_index]
+
+        img_dest = os.path.join(save_folder, class_name, f'{i}.jpg')
+
+        if type(img) == np.ndarray:
+            cv2.imwrite(img_dest, img)
+        else:
+            img_exstension = img.split('.')[-1]
+            img_dest = os.path.join(save_folder, class_name, f'{i}.{img_exstension}')
+            shutil.copy(img, img_dest)
 
 class MultifruitDataset(Dataset):
 
@@ -88,8 +109,9 @@ class MultifruitDataset(Dataset):
             extract_dataset('Multifruit', self.zip_file, self.dataset_dir)
 
         # sort the filenames so that the images are in the same order as the annotations
-        self.apple_imgs = list_files(self.multifruit_dir, 'apples', 'images') #list(sorted(os.listdir(os.path.join(self.multifruit_dir, 'apples', 'images'))))
+        self.apple_imgs = list(sorted(os.listdir(os.path.join(self.multifruit_dir, 'apples', 'images')))) #list_files(self.multifruit_dir, 'apples', 'images') #
         self.apple_annotations = list_files(self.multifruit_dir, 'apples', 'annotations') #list(sorted(os.listdir(os.path.join(self.multifruit_dir, 'apples', 'annotations'))))
+
         self.apple_h = 202
         self.apple_w = 308
 
@@ -406,16 +428,16 @@ class RipenessDataset(Dataset):
             extract_dataset('Ripeness', self.zip_file, self.dataset_dir)
 
         # we may want to use the fruit class of each image for later, so we'll keep the images separate
-        self.unripe_apple_imgs = list_files(self.ripeness_dir, 'Unripe_Apples')
-        self.unripe_mango_imgs = list_files(self.ripeness_dir, 'Unripe_Mango')
-        self.unripe_papaya_imgs = list_files(self.ripeness_dir, 'Unripe_Papaya')
+        self.unripe_apple_imgs = map(lambda x: os.path.join(self.ripeness_dir, 'Unripe_Apples', x), list_files(self.ripeness_dir, 'Unripe_Apples'))
+        self.unripe_mango_imgs =  map(lambda x: os.path.join(self.ripeness_dir, 'Unripe_Mango', x), list_files(self.ripeness_dir, 'Unripe_Mango'))
+        self.unripe_papaya_imgs = map(lambda x: os.path.join(self.ripeness_dir, 'Unripe_Papaya', x), list_files(self.ripeness_dir, 'Unripe_Papaya'))
 
-        self.ripe_apple_imgs = list_files(self.ripeness_dir, 'Ripe_Apples')
-        self.ripe_mango_imgs = list_files(self.ripeness_dir, 'Ripe_Mango')
-        self.ripe_papaya_imgs = list_files(self.ripeness_dir, 'Ripe_Papaya')
+        self.ripe_apple_imgs = map(lambda x: os.path.join(self.ripeness_dir, 'Ripe_Apples', x), list_files(self.ripeness_dir, 'Ripe_Apples'))
+        self.ripe_mango_imgs = map(lambda x: os.path.join(self.ripeness_dir, 'Ripe_Mango', x), list_files(self.ripeness_dir, 'Ripe_Mango'))
+        self.ripe_papaya_imgs = map(lambda x: os.path.join(self.ripeness_dir, 'Ripe_Papaya', x), list_files(self.ripeness_dir, 'Ripe_Papaya'))
 
-        self.unripe_imgs = self.unripe_apple_imgs + self.unripe_mango_imgs + self.unripe_papaya_imgs
-        self.ripe_imgs = self.ripe_apple_imgs + self.ripe_mango_imgs + self.ripe_papaya_imgs
+        self.unripe_imgs = list(self.unripe_apple_imgs) + list(self.unripe_mango_imgs) + list(self.unripe_papaya_imgs)
+        self.ripe_imgs = list(self.ripe_apple_imgs) + list(self.ripe_mango_imgs) + list(self.ripe_papaya_imgs)
 
     def __len__(self):
         return len(self.unripe_imgs) + len(self.ripe_imgs)
@@ -464,9 +486,11 @@ class DefectDataset(Dataset):
     def __getitem__(self, idx):
         if idx < len(self.defect_imgs):
             img_path = self.defect_imgs[idx]
+            img_path = os.path.join(self.defect_dir, 'defected', img_path)
             label = 0
         else:
             img_path = self.normal_imgs[idx - len(self.defect_imgs)]
+            img_path = os.path.join(self.defect_dir, 'normal', img_path)
             label = 1
 
         return img_path, label
@@ -474,12 +498,16 @@ class DefectDataset(Dataset):
 if __name__ == '__main__':
     image_train_dir = os.path.join(DATASET_DIR, 'images', 'train')
     label_train_dir = os.path.join(DATASET_DIR, 'labels', 'train')
+    image_val_dir = os.path.join(DATASET_DIR, 'images', 'val')
+    label_val_dir = os.path.join(DATASET_DIR, 'labels', 'val')
     image_test_dir = os.path.join(DATASET_DIR, 'images', 'test')
     label_test_dir = os.path.join(DATASET_DIR, 'labels', 'test')
 
     os.makedirs(DATASET_DIR, exist_ok=True)
     os.makedirs(image_train_dir, exist_ok=True)
     os.makedirs(label_train_dir, exist_ok=True)
+    os.makedirs(image_val_dir, exist_ok=True)
+    os.makedirs(label_val_dir, exist_ok=True)
     os.makedirs(image_test_dir, exist_ok=True)
     os.makedirs(label_test_dir, exist_ok=True)
 
@@ -493,15 +521,19 @@ if __name__ == '__main__':
     random_indices = np.random.permutation(len(yolov5_dataset))
 
     train_dataset = []
+    validation_dataset = []
     test_dataset = []
 
     # (Wang, Tang, & Whitty 2022), we get diminishing returns for using more than 1000 annotated objects
     # although since we only have ~1800 papaya objects, we may as well use 80% for training and 20% for testing
     # TODO: turn this into a train/val/test set
-    num_training_objects = [4000, 1500, 4000]
+    num_training_objects = [4000, 1200, 4000]
+    num_validation_objects = [1000, 300, 1000]
     num_training_objects_per_fruit = [0, 0, 0]
+    num_validation_objects_per_fruit = [0, 0, 0]
     num_testing_objects_per_fruit = [0, 0, 0]
     empty_images_in_train = 0
+    empty_images_in_val = 0
     empty_images_in_test = 0
 
     for index in tqdm(random_indices, desc='Splitting dataset', total=len(random_indices)):
@@ -510,10 +542,14 @@ if __name__ == '__main__':
         num_objects = len(bounding_boxes)
 
         if num_objects == 0:
-            # send 20% of images with no objects to the test set and the rest to training
-            if np.random.random() < 0.2:
+            # send 10% of images with no objects to the test set...
+            if np.random.random() < 0.1:
                 test_dataset.append((img_path, bounding_boxes))
                 empty_images_in_test += 1
+            # send another 10% to the validation set
+            elif np.random.random() < 0.2:
+                validation_dataset.append((img_path, bounding_boxes))
+                empty_images_in_val += 1
             else:
                 train_dataset.append((img_path, bounding_boxes))
                 empty_images_in_train += 1
@@ -521,17 +557,21 @@ if __name__ == '__main__':
 
         fruit = int(bounding_boxes.iloc[0, 0])
 
-        if num_training_objects_per_fruit[fruit] > num_training_objects[fruit]:
-            test_dataset.append((img_path, bounding_boxes))
-            num_testing_objects_per_fruit[fruit] += num_objects
-        else:
+        if num_training_objects_per_fruit[fruit] < num_training_objects[fruit]:
             train_dataset.append((img_path, bounding_boxes))
             num_training_objects_per_fruit[fruit] += num_objects
-
-    save_dataset(train_dataset, image_train_dir, label_train_dir)
-    save_dataset(test_dataset, image_test_dir, label_test_dir)
+        elif num_validation_objects_per_fruit[fruit] < num_validation_objects[fruit]:
+            validation_dataset.append((img_path, bounding_boxes))
+            num_validation_objects_per_fruit[fruit] += num_objects
+        else:
+            test_dataset.append((img_path, bounding_boxes))
+            num_testing_objects_per_fruit[fruit] += num_objects
 
     for i in range(len(FRUIT_NAME)):
-        print(f'{FRUIT_NAME[i]}: {num_training_objects_per_fruit[i]} training objects, {num_testing_objects_per_fruit[i]} testing objects')
+        print(f'{FRUIT_NAME[i]}: {num_training_objects_per_fruit[i]} training objects, {num_validation_objects_per_fruit[i]} validation objects, {num_testing_objects_per_fruit[i]} testing objects')
 
-    print(f'{empty_images_in_train} empty images in training set, {empty_images_in_test} empty images in test set')
+    print(f'{empty_images_in_train} empty images in training set, {empty_images_in_val} empty images in validation set, {empty_images_in_test} empty images in test set')
+
+    save_dataset(train_dataset, image_train_dir, label_train_dir)
+    save_dataset(validation_dataset, image_val_dir, label_val_dir)
+    save_dataset(test_dataset, image_test_dir, label_test_dir)

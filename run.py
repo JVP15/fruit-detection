@@ -1,24 +1,20 @@
-import time
-
 import cv2
 import argparse
 import torch
-import sys
 
 from modules import preprocessor
 
-from modules.detection import FruitDetectionModule
-from modules.defect import DefectModule
-from modules.ripeness import RipenessModule
+from deepfruitvision import DeepFruitVision
 from modules.view import View
 
 DEFAULT_SOURCE = None
 DEFAULT_DETECTION_WEIGHTS = 'weights/detection/best.pt'
-DEFAULT_RIPENESS_WEIGHTS = 'weights/ripeness/mobilenetv2'
-DEFAULT_DEFECT_WEIGHTS = 'weights/disease/efficientnetb4'
+DEFAULT_RIPENESS_WEIGHTS = 'weights/ripeness/ripeness_model'
+DEFAULT_DEFECT_WEIGHTS = 'weights/disease/defect_model'
 DEFAULT_MIN_BOUNDING_BOX_SIZE = 0.1
 DEFAULT_GUI = False
 DEFAULT_DISPLAY = 'confidence'
+
 
 def run(source = DEFAULT_SOURCE,
         detection_weights= DEFAULT_DETECTION_WEIGHTS,
@@ -28,28 +24,18 @@ def run(source = DEFAULT_SOURCE,
         use_gui = DEFAULT_GUI,
         **kwargs):
 
-
     if source is None and not use_gui:
         raise ValueError('No source specified. Please either specify a source or use the GUI.')
 
     cap = None
+
+    source_type = None
+
     if source is not None:
         cap = cv2.VideoCapture(source)
 
         if not cap.isOpened():
             raise ValueError('Unable to open source: ' + str(source))
-
-    num_gpus = torch.cuda.device_count()
-
-    detection_gpu = 'cuda:0'
-    ripeness_gpu = '/GPU:0'
-    defect_gpu = '/GPU:0'
-
-    if num_gpus >= 2:
-        ripeness_gpu = '/GPU:1'
-        defect_gpu = '/GPU:1'
-    if num_gpus >= 3:
-        defect_gpu = '/GPU:2'
 
     preprocessor.MIN_BOUNDING_BOX_SIZE = min_bounding_box_size
 
@@ -58,48 +44,41 @@ def run(source = DEFAULT_SOURCE,
         view.start()
 
     # init the pretrained networks
-    detection_module = FruitDetectionModule(detection_weights, device=detection_gpu)
-    ripeness_module = RipenessModule(ripeness_weights, device=ripeness_gpu)
-    defect_module = DefectModule(defect_weights, device=defect_gpu)
+    deep_fruit_vision = DeepFruitVision(detection_weights, ripeness_weights, defect_weights, min_bounding_box_size)
 
     if use_gui:
         view.update_source(source)
 
-    # if we are using the GUI, we need to check if the user has quit.
-    # If we are not using the GUI, view.quit is always false, so it will loop until the video is over.
-    while not view.quit:
+    frame = None
+    bounding_boxes = None
+
+    while True: # to exit this loop, we call `break`
 
         if source is not None:
-            # sometimes, a source will be an image, so we need to treat it differently
-            if source.lower().endswith('.jpg') or source.endswith('.png') or source.endswith('.jpeg'):
+            ret, frame = cap.read()
 
-                frame = cv2.imread(source)
-            else:
-                ret, frame = cap.read()
-                if not ret and use_gui:
-                    source = None
-                    view.update_source(source)
-                    continue
-                elif not ret:
-                    break
+            if not ret and use_gui:
+                source = None
+                view.update_source(source)
+                continue
+            # if there are no more frames, and we're not using the GUI, then quit (use break so that deep_fruit_vision.predict() does not get called)
+            elif not ret:
+                break
 
-            detection_input = preprocessor.preprocess_frame_for_detection(frame)
-            bounding_boxes = detection_module.get_bounding_boxes(detection_input)
-
-            localized_fruit = preprocessor.localize_fruit(frame, bounding_boxes)
-
-            ripenesses = ripeness_module.get_ripeness_predictions(localized_fruit)
-            defects = defect_module.get_disease_predictions(localized_fruit)
+            bounding_boxes = deep_fruit_vision.predict(frame)
 
         if use_gui:
             display = view.get_display()
 
             if source is not None:
-                display_frame = preprocessor.prepare_output_frame(frame, bounding_boxes, ripenesses, defects, ui=display)
+                display_frame = preprocessor.prepare_output_frame(frame, bounding_boxes, ui=display)
                 view.update_image(display_frame)
 
             events, values = view.get_event()
             view.process_events(events, values)
+
+            if view.quit: # if the user has quit, then exit the loop
+                break
 
             # if the user has selected a new source, we need to update the video capture
             if source != view.source:

@@ -16,7 +16,7 @@ class View:
         self.window = None
         self.source = None
         self.display = 'confidence'
-# --source dataset\images\test\image_%01d.png
+
     def start(self):
         video_file_button = sg.Button('Open Video File', visible=False, key='--VIDEO-FILE--',  font=('Any', 28))
         camera_button = sg.Button('Open Camera', visible=False, key='--CAMERA--',  font=('Any', 28))

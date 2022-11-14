@@ -15,7 +15,6 @@ class FruitDetectionModule(object):
         """
 
         predictions = self.model(img)
-
         bounding_boxes = []
 
         # the first dimension of predictions.xyxy is the batch dimension, and since we only have one image,

@@ -18,9 +18,7 @@ class RipenessModule(object):
             with tf.device(self.device):
                 predictions = self.model(img_batch)
 
-            ripeness_predictions = []
-            for prediction in predictions:
-                ripeness_predictions.append((np.argmax(prediction), np.max(prediction))) #TODO: do this using vectorized functions
+            ripeness_predictions = [(np.argmax(prediction), np.max(prediction)) for prediction in predictions]
 
             return ripeness_predictions
         else:

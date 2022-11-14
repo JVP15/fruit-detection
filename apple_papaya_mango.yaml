@@ -1,16 +1,13 @@
 # Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
 path: ../dataset  # dataset root dir
 train: images/train  # train images (relative to 'path') 128 images
-val: images/test  # val images (relative to 'path') 128 images
-test:  # test images (optional)
+val: images/val  # val images (relative to 'path') 128 images
+test:  images/test
 
 # Classes
 nc: 3  # number of classes
 names: [ 'apple', 'papaya', 'mango']  # class names
 
 
-#apple: 4001 training objects, 30947 testing objects
-#papaya: 1517 training objects, 372 testing objects
-#mango: 4002 training objects, 18344 testing objects
-#542 empty images in training set, 146 empty images in test set
+
 
