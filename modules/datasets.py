@@ -14,7 +14,7 @@ import xml.etree.ElementTree as ET
 
 from torch.utils.data import Dataset, ConcatDataset
 
-DATASET_DIR = '../dataset'
+DATASET_DIR = os.path.join('..', 'dataset') # by default, the datasets are saved in the 'dataset' folder.
 
 FRUIT_NAME = ['apple', 'papaya', 'mango']
 
@@ -30,7 +30,7 @@ def download_dataset(name, url, output_dir, zip_file, replace=False):
         wget.download(url, out=output_dir)
 
 def extract_dataset(name, filename, output_dir):
-    """extracts the dataset from the source"""
+    """Extracts the dataset from the source"""
     print(f'Extracting {name} dataset...')
 
     if filename.endswith('.zip'):
@@ -422,22 +422,24 @@ class RipenessDataset(Dataset):
         self.zip_file = os.path.join(self.dataset_dir, 'ripeness_dataset.zip')
 
         if not os.path.exists(self.ripeness_dir):
+            os.makedirs(self.ripeness_dir)
+
             if not os.path.exists(self.zip_file):
                 raise FileNotFoundError('Ripeness dataset not found. You must manually download it, rename it "ripeness_dataset.zip", and place it in the datasets folder.')
 
-            extract_dataset('Ripeness', self.zip_file, self.dataset_dir)
+            extract_dataset('Ripeness', self.zip_file, self.data_dir)
 
         # we may want to use the fruit class of each image for later, so we'll keep the images separate
-        self.unripe_apple_imgs = map(lambda x: os.path.join(self.ripeness_dir, 'Unripe_Apples', x), list_files(self.ripeness_dir, 'Unripe_Apples'))
-        self.unripe_mango_imgs =  map(lambda x: os.path.join(self.ripeness_dir, 'Unripe_Mango', x), list_files(self.ripeness_dir, 'Unripe_Mango'))
-        self.unripe_papaya_imgs = map(lambda x: os.path.join(self.ripeness_dir, 'Unripe_Papaya', x), list_files(self.ripeness_dir, 'Unripe_Papaya'))
+        self.unripe_apple_imgs = [os.path.join(self.ripeness_dir, 'Unripe Apples', file) for file in list_files(self.ripeness_dir, 'Unripe_Apples')]
+        self.unripe_mango_imgs = [os.path.join(self.ripeness_dir, 'Unripe_Mango', file) for file in  list_files(self.ripeness_dir, 'Unripe_Mango')]
+        self.unripe_papaya_imgs = [os.path.join(self.ripeness_dir, 'Unripe_Papaya', file) for file in  list_files(self.ripeness_dir, 'Unripe_Papaya')]
 
-        self.ripe_apple_imgs = map(lambda x: os.path.join(self.ripeness_dir, 'Ripe_Apples', x), list_files(self.ripeness_dir, 'Ripe_Apples'))
-        self.ripe_mango_imgs = map(lambda x: os.path.join(self.ripeness_dir, 'Ripe_Mango', x), list_files(self.ripeness_dir, 'Ripe_Mango'))
-        self.ripe_papaya_imgs = map(lambda x: os.path.join(self.ripeness_dir, 'Ripe_Papaya', x), list_files(self.ripeness_dir, 'Ripe_Papaya'))
+        self.ripe_apple_imgs = [os.path.join(self.ripeness_dir, 'Ripe_Apples', file) for file in  list_files(self.ripeness_dir, 'Ripe_Apples')]
+        self.ripe_mango_imgs = [os.path.join(self.ripeness_dir, 'Ripe_Mango', file) for file in  list_files(self.ripeness_dir, 'Ripe_Mango')]
+        self.ripe_papaya_imgs = [os.path.join(self.ripeness_dir, 'Ripe_Papaya', file) for file in  list_files(self.ripeness_dir, 'Ripe_Papaya')]
 
-        self.unripe_imgs = list(self.unripe_apple_imgs) + list(self.unripe_mango_imgs) + list(self.unripe_papaya_imgs)
-        self.ripe_imgs = list(self.ripe_apple_imgs) + list(self.ripe_mango_imgs) + list(self.ripe_papaya_imgs)
+        self.unripe_imgs = self.unripe_apple_imgs + self.unripe_mango_imgs + self.unripe_papaya_imgs
+        self.ripe_imgs = self.ripe_apple_imgs + self.ripe_mango_imgs + self.ripe_papaya_imgs
 
     def __len__(self):
         return len(self.unripe_imgs) + len(self.ripe_imgs)
@@ -472,10 +474,12 @@ class DefectDataset(Dataset):
         self.zip_file = os.path.join(self.dataset_dir, 'defect_dataset.zip')
 
         if not os.path.exists(self.defect_dir):
+            os.makedirs(self.defect_dir)
+
             if not os.path.exists(self.zip_file):
                 raise FileNotFoundError('Defect dataset not found. You must manually download it, rename it "defect_dataset.zip", and place it in the datasets folder.')
 
-            extract_dataset('Defect', self.zip_file, self.dataset_dir)
+            extract_dataset('Defect', self.zip_file, self.data_dir)
 
         self.defect_imgs = list_files(self.defect_dir, 'defected')
         self.normal_imgs = list_files(self.defect_dir, 'normal')
@@ -494,6 +498,97 @@ class DefectDataset(Dataset):
             label = 1
 
         return img_path, label
+
+    def clean(self, remove_zip=False):
+        shutil.rmtree(self.data_dir)
+        if remove_zip:
+            os.remove(self.zip_file)
+
+        print('Defect Dataset cleaned.')
+
+
+class TestDataset(Dataset):
+    """This dataset is used to evaluate the overall performance of Deep Fruit Vision. It is stored as a
+    Yolo-v5 dataset, so we have to extract the fruit, ripeness, and defect labels from the number.
+    This dataset is also used to calculate the accuracy for the entire ensemble model."""
+
+    # we use this to convert the label from 0-9 to the fruit, ripeness, and defect labels in plain text
+    class_names = ['ripe healthy apple', 'ripe healthy mango', 'ripe healthy papaya',
+                   'ripe unhealthy apple', 'ripe unhealthy mango', 'ripe unhealthy papaya',
+                   'unripe healthy apple', 'unripe healthy mango', 'unripe healthy papaya',
+                   'unripe unhealthy apple', 'unripe unhealthy mango', 'unripe unhealthy papaya']
+
+    #
+    ensemble_labels = ['defective fruit', 'unripe fruit', 'harestable fruit']
+
+    # we use this to convert the labels from 0-9 to a tuple of fruits, ripeness, and defect labels values
+    # e.g. 0 is 'ripe healthy apple' which becomes (1, 1, 0) because ripe = 1, healthy = 1, apple = 0 (see classnames in detection.py, ripeness.py, and defect.py)
+    numeric_labels = [(1, 1, 0), (1, 1, 1), (1, 1, 2),
+                      (1, 0, 0), (1, 0, 1), (1, 0, 2),
+                      (0, 1, 0), (0, 1, 1), (0, 1, 2),
+                      (0, 0, 0), (0, 0, 1), (0, 0, 2)]
+
+    def __init__(self, dataset_dir=DATASET_DIR):
+        self.dataset_dir = dataset_dir
+        self.test_dir = os.path.join(self.dataset_dir, 'test_dataset')
+        self.zip_file = os.path.join(self.dataset_dir, 'test_dataset.zip')
+
+        if not os.path.exists(self.test_dir):
+            os.makedirs(self.test_dir)
+
+            if not os.path.exists(self.zip_file):
+                raise FileNotFoundError('Test dataset not found. You must manually download it, rename it "test_dataset.zip", and place it in the datasets folder.')
+
+            extract_dataset('Test', self.zip_file, self.test_dir)
+
+        self.imgs = list_files(self.test_dir, 'images')
+        self.labels = list_files(self.test_dir, 'labels')
+
+    def get_ensemble_label(self, label):
+        """This function takes a tuple of (fruit, ripeness, defect) numeric labels and returns a numeric value
+        corresponding to an ensemble label. The logic her follows the same logic as the ensemble model."""
+
+        if label[2] == 0: # if the fruit is defective, return 'defective fruit' (0)
+            return 0
+        elif label[1] == 0: # if the fruit is unripe, return 'unripe fruit' (1)
+            return 1
+        else:
+            return 2 # otherwise, return 'harvestable fruit' (2)
+
+    def __len__(self):
+        return len(self.imgs)
+
+    def __getitem__(self, idx):
+        """This function returns the image (as a BGR np.array, not a file path like the other datasets) and a label.
+        The label is a numpy array where each row is a bounding box and each column is the following:
+        [class, x, y, width, height, fruit, ripeness, defect, ensemble_label].
+        x and y are the upper left hand corner, and x, y, w, and h are all normalized coordinates."""
+
+        img_path = os.path.join(self.test_dir, 'images', self.imgs[idx])
+        label_path = os.path.join(self.test_dir, 'labels', self.labels[idx])
+
+        # read the label file into a pandas dataframe
+        df = pd.read_csv(label_path, sep=' ', header=None, names=['class', 'x', 'y', 'w', 'h'])
+
+        # convert the x and y coordinates to the top left corner of the bounding box
+        df['x'] = df['x'] - df['w'] / 2
+        df['y'] = df['y'] - df['h'] / 2
+
+        # add the fruit, ripeness, and defect labels to the dataframe based on the class
+        df['fruit'] = df['class'].apply(lambda x: self.numeric_labels[x][0])
+        df['ripeness'] = df['class'].apply(lambda x: self.numeric_labels[x][1])
+        df['defect'] = df['class'].apply(lambda x: self.numeric_labels[x][2])
+
+        # add the ensemble label to the dataframe
+        df['ensemble'] = df[['fruit', 'ripeness', 'defect']].apply(self.get_ensemble_label, axis=1)
+
+        # convert the dataframe to a numpy array
+        label = df.to_numpy()
+
+        # load the image
+        img = cv2.imread(img_path)
+
+        return img, label
 
 if __name__ == '__main__':
     image_train_dir = os.path.join(DATASET_DIR, 'images', 'train')
@@ -525,8 +620,7 @@ if __name__ == '__main__':
     test_dataset = []
 
     # (Wang, Tang, & Whitty 2022), we get diminishing returns for using more than 1000 annotated objects
-    # although since we only have ~1800 papaya objects, we may as well use 80% for training and 20% for testing
-    # TODO: turn this into a train/val/test set
+    # although since we only have ~1800 papaya objects, we may as well use 70% for training, ~15% for validation, and ~15% for testing
     num_training_objects = [4000, 1200, 4000]
     num_validation_objects = [1000, 300, 1000]
     num_training_objects_per_fruit = [0, 0, 0]
