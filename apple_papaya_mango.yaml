@@ -2,7 +2,7 @@
 path: ../dataset  # dataset root dir
 train: images/train  # train images (relative to 'path') 128 images
 val: images/val  # val images (relative to 'path') 128 images
-test:  images/test
+test:  yolov5_test/images
 
 # Classes
 nc: 3  # number of classes

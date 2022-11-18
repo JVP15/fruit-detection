@@ -3,6 +3,8 @@ import torch
 
 from typing import List
 
+classnames = ['apple', 'papaya', 'mango']
+
 class FruitDetectionModule(object):
     def __init__(self, weights_path, device = 'cuda:0'):
         self.model = torch.hub.load('yolov5', 'custom', path=weights_path,

@@ -4,6 +4,31 @@ from modules.defect import DefectModule
 
 import modules.preprocessor as preprocessor
 
+classnames = ['defective fruit', 'unripe fruit', 'harvestable fruit']
+
+def add_harvestability_to_box(bounding_box):
+    """This function takes a bounding box that has already been processed by the detection, ripeness, and defect model
+    and adds a 'harvestability' key to the bounding box dictionary. The value of the 'harvestability' key is an integer
+    that represents the harvestability of the fruit.
+    0 means the fruit is unharvestable because it is defective.
+    1 means the fruit is not yet harvestable because it is unripe.
+    2 means the fruit is harvestable.
+    If the bounding box is too small, the 'harvestability' key is set to None because the fruit is too small to make an
+    accurate prediction about its harvestability.
+    """
+
+    if bounding_box['small']:
+        bounding_box['harvestability'] = None
+    else:
+        if bounding_box['defect'][0] == 0:
+            bounding_box['harvestability'] = 0
+        elif bounding_box['ripeness'][0] == 0:
+            bounding_box['harvestability'] = 1
+        else:
+            bounding_box['harvestability'] = 2
+
+    return bounding_box
+
 class DeepFruitVision:
     def __init__(self, detection_weights, ripeness_weights, defect_weights, min_bounding_box_size=0.1):
         self.detection_module = FruitDetectionModule(detection_weights)
@@ -38,3 +63,12 @@ class DeepFruitVision:
         bounding_boxes = list(map(add_ripeness_and_defect, bounding_boxes))
 
         return bounding_boxes
+
+    def get_harvestability(self, frame):
+        bounding_boxes = self.predict(frame)
+
+        bounding_boxes = [add_harvestability_to_box(bounding_box) for bounding_box in bounding_boxes]
+
+        return bounding_boxes
+
+

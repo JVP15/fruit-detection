@@ -1,6 +1,6 @@
 import cv2
 import argparse
-import torch
+import mimetypes
 
 from modules import preprocessor
 
@@ -29,8 +29,6 @@ def run(source = DEFAULT_SOURCE,
 
     cap = None
 
-    source_type = None
-
     if source is not None:
         cap = cv2.VideoCapture(source)
 
@@ -52,21 +50,34 @@ def run(source = DEFAULT_SOURCE,
     frame = None
     bounding_boxes = None
 
-    while True: # to exit this loop, we call `break`
+    while True: # to exit this loop, we just call `break`. It's not the most elegant solution, but this is a short script, so it works
 
+        # this part of the program handles reading the frame and making predictions
         if source is not None:
-            ret, frame = cap.read()
+            # if the source is an image, we only need to read and predict using it once
+            if mimetypes.guess_type(source)[0].startswith('image'):
+                frame = cv2.imread(source)
 
-            if not ret and use_gui:
-                source = None
-                view.update_source(source)
-                continue
-            # if there are no more frames, and we're not using the GUI, then quit (use break so that deep_fruit_vision.predict() does not get called)
-            elif not ret:
-                break
+                if bounding_boxes is None:
+                    bounding_boxes = deep_fruit_vision.get_harvestability(frame)
 
-            bounding_boxes = deep_fruit_vision.predict(frame)
+                # if we're not using the GUI, we can break out of the loop since we only do one prediction, otherwise, we stay in the loop to update the GUI
+                if not use_gui:
+                    break
+            else:
+                ret, frame = cap.read()
 
+                if not ret and use_gui:
+                    source = None
+                    view.update_source(source)
+                    continue
+                # if there are no more frames, and we're not using the GUI, then quit (use break so that deep_fruit_vision.predict() does not get called)
+                elif not ret:
+                    break
+
+                bounding_boxes = deep_fruit_vision.get_harvestability(frame)
+
+        # this part is exlusive to the GUI
         if use_gui:
             display = view.get_display()
 
@@ -91,6 +102,7 @@ def run(source = DEFAULT_SOURCE,
                         cap.release()
                     cap = cap2
                     source = view.source
+                    bounding_boxes = None
                 else:
                     view.display_source_error(view.source)
                     view.update_source(source)

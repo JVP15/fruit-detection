@@ -3,7 +3,7 @@ import cv2
 
 
 class View:
-    menu_def = [['&File', ['Open Video File', 'Open Camera', '---', 'E&xit']],
+    menu_def = [['&File', ['Open File', 'Open Camera', '---', 'E&xit']],
                 ['&View', ['!Confidence View', 'Harvestability View']]
                 ]
     width = 800
@@ -18,7 +18,7 @@ class View:
         self.display = 'confidence'
 
     def start(self):
-        video_file_button = sg.Button('Open Video File', visible=False, key='--VIDEO-FILE--',  font=('Any', 28))
+        video_file_button = sg.Button('Open File', visible=False, key='--FILE--',  font=('Any', 28))
         camera_button = sg.Button('Open Camera', visible=False, key='--CAMERA--',  font=('Any', 28))
         layout = [
             [sg.VPush()],
@@ -31,6 +31,11 @@ class View:
         _, _ = self.window.read(timeout=13)
 
     def update_image(self, img):
+        # resize the image if it is too big, preserving aspect ratio
+        if img.shape[0] > self.height or img.shape[1] > self.width:
+            scale = min(self.height / img.shape[0], self.width / img.shape[1])
+            img = cv2.resize(img, (0, 0), fx=scale, fy=scale)
+
         imgbytes = cv2.imencode('.png', img)[1].tobytes()
 
         if not self.has_image:
@@ -44,11 +49,11 @@ class View:
         self.window['--MAIN-TEXT--'].update(visible=False)
 
         if source is None:
-            self.window['--VIDEO-FILE--'].update(visible=True)
+            self.window['--FILE--'].update(visible=True)
             self.window['--CAMERA--'].update(visible=True)
             self.window['--IMAGE--'].update(data=None)
         else:
-            self.window['--VIDEO-FILE--'].update(visible=False)
+            self.window['--FILE--'].update(visible=False)
             self.window['--CAMERA--'].update(visible=False)
 
     def display_source_error(self, source):
@@ -77,7 +82,7 @@ class View:
             self.menu_def[1][1][1] = '!Harvestability View'
             self.window['--MENU--'].update(self.menu_def)
 
-        elif events == 'Open Video File' or events == '--VIDEO-FILE--':
+        elif events == 'Open File' or events == '--FILE--':
             file_source = sg.popup_get_file('Select video file:', no_window=True)
 
             if file_source is not None and file_source != '':

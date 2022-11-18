@@ -150,14 +150,11 @@ def prepare_output_frame(input_frame, bounding_boxes, ui='confidence'):
             if box['small']:
                 continue
 
-            # if the fruit is not healthy, draw a red bounding box (unhealthy is 0, healthy is 1)
-            if defect_pred[0] == 0:
+            if box['harvestability'] == 0: # if the fruit is not harvestable, draw a red box
                 color = (0, 0, 255)
-            # if the fruit is healthy, but unripe, draw a yellow bounding box (0 is unripe, 1 is ripe)
-            elif ripeness_pred[0] == 0:
+            elif box['harvestability'] == 1: # if the fruit is not yet ripe, draw a yellow box
                 color = (0, 255, 255)
-            # if the fruit is healthy and ripe, draw a green bounding box
-            else:
+            else: # if the fruit is ripe, draw a green box
                 color = (0, 255, 0)
 
             # draw the bounding box
