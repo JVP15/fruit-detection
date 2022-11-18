@@ -23,11 +23,12 @@ class View:
         layout = [
             [sg.VPush()],
             [sg.Push(), sg.Text('Loading Models...', font=('Any', 28), key='--MAIN-TEXT--'),
-                sg.Image(key='--IMAGE--'), video_file_button, camera_button, sg.Push()],
+                sg.Image(key='--IMAGE--'), sg.Push()],
+            [video_file_button, camera_button],
             [sg.VPush()],
             [sg.Menu(self.menu_def, tearoff=False, pad=(200, 1), key='--MENU--')],
         ]
-        self.window = sg.Window('Fruit Detection', layout, size=(self.width, self.height))
+        self.window = sg.Window('Fruit Detection', layout, size=(self.width, self.height), element_justification='c')
         _, _ = self.window.read(timeout=13)
 
     def update_image(self, img):
