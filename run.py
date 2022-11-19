@@ -10,7 +10,7 @@ from modules.view import View
 DEFAULT_SOURCE = None
 DEFAULT_DETECTION_WEIGHTS = 'weights/detection/best.pt'
 DEFAULT_RIPENESS_WEIGHTS = 'weights/ripeness/ripeness_model'
-DEFAULT_DEFECT_WEIGHTS = 'weights/disease/defect_model'
+DEFAULT_DEFECT_WEIGHTS = 'weights/defect/defect_model'
 DEFAULT_MIN_BOUNDING_BOX_SIZE = 0.1
 DEFAULT_GUI = False
 DEFAULT_DISPLAY = 'confidence'

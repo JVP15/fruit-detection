@@ -412,7 +412,9 @@ class PapayaDataset(Dataset):
 class RipenessDataset(Dataset):
     """
     This dataset acts as a Pytorch interface for the ripeness dataset.
-    We use it when we're creating the synthetic dataset.
+    It can be accessed by downloading this folder from Google Drive:
+    https://drive.google.com/drive/folders/1s7GP9iYfF5wgv1AmFbai2TqUHaUpMntG?usp=sharing
+    and renaming the .zip file to 'ripeness_dataset.zip' and placing it in the datasets folder.
     """
 
     def __init__(self, dataset_dir=DATASET_DIR):
@@ -430,7 +432,7 @@ class RipenessDataset(Dataset):
             extract_dataset('Ripeness', self.zip_file, self.data_dir)
 
         # we may want to use the fruit class of each image for later, so we'll keep the images separate
-        self.unripe_apple_imgs = [os.path.join(self.ripeness_dir, 'Unripe Apples', file) for file in list_files(self.ripeness_dir, 'Unripe_Apples')]
+        self.unripe_apple_imgs = [os.path.join(self.ripeness_dir, 'Unripe_Apples', file) for file in list_files(self.ripeness_dir, 'Unripe_Apples')]
         self.unripe_mango_imgs = [os.path.join(self.ripeness_dir, 'Unripe_Mango', file) for file in  list_files(self.ripeness_dir, 'Unripe_Mango')]
         self.unripe_papaya_imgs = [os.path.join(self.ripeness_dir, 'Unripe_Papaya', file) for file in  list_files(self.ripeness_dir, 'Unripe_Papaya')]
 
@@ -445,14 +447,17 @@ class RipenessDataset(Dataset):
         return len(self.unripe_imgs) + len(self.ripe_imgs)
 
     def __getitem__(self, idx):
+        """This getitem returns the image and label (0 for unripe, 1 for ripe). The image is returned as a
+        numpy array, not a file path (unlike the other datasets) because there were some issues moving the files."""
         if idx < len(self.unripe_imgs):
             img_path = self.unripe_imgs[idx]
             label = 0
         else:
             img_path = self.ripe_imgs[idx - len(self.unripe_imgs)]
             label = 1
+        img = cv2.imread(img_path)
 
-        return img_path, label
+        return img, label
 
     def clean(self, remove_zip=False):
         shutil.rmtree(self.data_dir)
@@ -464,7 +469,9 @@ class RipenessDataset(Dataset):
 class DefectDataset(Dataset):
     """
     This dataset acts as a Pytorch interface for the ripeness dataset.
-    We use it when we're creating the synthetic dataset.
+    It can be accessed by downloading this folder from Google Drive:
+    https://drive.google.com/drive/folders/1s7GP9iYfF5wgv1AmFbai2TqUHaUpMntG?usp=sharing
+    and renaming the .zip file to 'defect_dataset.zip' and placing it in the datasets folder.
     """
 
     def __init__(self, dataset_dir=DATASET_DIR):
@@ -512,23 +519,25 @@ class TestDataset(Dataset):
     Yolo-v5 dataset, so we have to extract the fruit, ripeness, and defect labels from the number.
     This dataset is also used to calculate the accuracy for the entire ensemble model."""
 
-    # we use this to convert the label from 0-9 to the fruit, ripeness, and defect labels in plain text
+    # we use this to convert the label from 0-11 to the fruit, ripeness, and defect labels in plain text
+    # this is the way label studio stores the labels
     class_names = ['ripe healthy apple', 'ripe healthy mango', 'ripe healthy papaya',
                    'ripe unhealthy apple', 'ripe unhealthy mango', 'ripe unhealthy papaya',
                    'unripe healthy apple', 'unripe healthy mango', 'unripe healthy papaya',
                    'unripe unhealthy apple', 'unripe unhealthy mango', 'unripe unhealthy papaya']
 
-    #
-    ensemble_labels = ['defective fruit', 'unripe fruit', 'harestable fruit']
+    ensemble_labels = ['defective fruit', 'unripe fruit', 'harvestable fruit']
 
-    # we use this to convert the labels from 0-9 to a tuple of fruits, ripeness, and defect labels values
-    # e.g. 0 is 'ripe healthy apple' which becomes (1, 1, 0) because ripe = 1, healthy = 1, apple = 0 (see classnames in detection.py, ripeness.py, and defect.py)
-    numeric_labels = [(1, 1, 0), (1, 1, 1), (1, 1, 2),
-                      (1, 0, 0), (1, 0, 1), (1, 0, 2),
-                      (0, 1, 0), (0, 1, 1), (0, 1, 2),
-                      (0, 0, 0), (0, 0, 1), (0, 0, 2)]
+    # we use this to convert the labels from 0-11 to a tuple of fruits, ripeness, and defect labels values
+    # e.g. 0 is 'ripe healthy apple' which becomes (1, 1, 0) because ripe = 1, healthy = 1, apple = 0, papaya = 1, mango = 2, etc(see classnames in detection.py, ripeness.py, and defect.py)
+    numeric_labels = [(1, 1, 0), (1, 1, 2), (1, 1, 1),
+                      (1, 0, 0), (1, 0, 2), (1, 0, 1),
+                      (0, 1, 0), (0, 1, 2), (0, 1, 1),
+                      (0, 0, 0), (0, 0, 2), (0, 0, 1)]
 
-    def __init__(self, dataset_dir=DATASET_DIR):
+    def __init__(self, dataset_dir=DATASET_DIR, for_yolov5_eval=False):
+        self.for_yolov5_eval = for_yolov5_eval
+
         self.dataset_dir = dataset_dir
         self.test_dir = os.path.join(self.dataset_dir, 'test_dataset')
         self.zip_file = os.path.join(self.dataset_dir, 'test_dataset.zip')
@@ -548,9 +557,9 @@ class TestDataset(Dataset):
         """This function takes a tuple of (fruit, ripeness, defect) numeric labels and returns a numeric value
         corresponding to an ensemble label. The logic her follows the same logic as the ensemble model."""
 
-        if label[2] == 0: # if the fruit is defective, return 'defective fruit' (0)
+        if label[1] == 0: # if the fruit is defective, return 'defective fruit' (0)
             return 0
-        elif label[1] == 0: # if the fruit is unripe, return 'unripe fruit' (1)
+        elif label[0] == 0: # if the fruit is unripe, return 'unripe fruit' (1)
             return 1
         else:
             return 2 # otherwise, return 'harvestable fruit' (2)
@@ -560,9 +569,12 @@ class TestDataset(Dataset):
 
     def __getitem__(self, idx):
         """This function returns the image (as a BGR np.array, not a file path like the other datasets) and a label.
-        The label is a numpy array where each row is a bounding box and each column is the following:
+        By default, the label is a numpy array where each row is a bounding box and each column is the following:
         [class, x, y, width, height, fruit, ripeness, defect, ensemble_label].
-        x and y are the upper left hand corner, and x, y, w, and h are all normalized coordinates."""
+        x and y are the upper left hand corner, and x, y, w, and h are all normalized coordinates.
+
+        But, when for_yolov5_eval is True, the label is just like any other detection dataset, and the img is a file path.
+        This is useful for evaluating the YOLOv5 model on the test dataset."""
 
         img_path = os.path.join(self.test_dir, 'images', self.imgs[idx])
         label_path = os.path.join(self.test_dir, 'labels', self.labels[idx])
@@ -570,23 +582,28 @@ class TestDataset(Dataset):
         # read the label file into a pandas dataframe
         df = pd.read_csv(label_path, sep=' ', header=None, names=['class', 'x', 'y', 'w', 'h'])
 
-        # convert the x and y coordinates to the top left corner of the bounding box
-        df['x'] = df['x'] - df['w'] / 2
-        df['y'] = df['y'] - df['h'] / 2
+        if self.for_yolov5_eval:
+            df['class'] = df['class'].apply(lambda x: self.numeric_labels[x][2])
+            label = df
+            img = img_path
+        else:
+            # convert the x and y coordinates to the top left corner of the bounding box
+            df['x'] = df['x'] - df['w'] / 2
+            df['y'] = df['y'] - df['h'] / 2
 
-        # add the fruit, ripeness, and defect labels to the dataframe based on the class
-        df['fruit'] = df['class'].apply(lambda x: self.numeric_labels[x][0])
-        df['ripeness'] = df['class'].apply(lambda x: self.numeric_labels[x][1])
-        df['defect'] = df['class'].apply(lambda x: self.numeric_labels[x][2])
+            # add the fruit, ripeness, and defect labels to the dataframe based on the class
+            df['ripeness'] = df['class'].apply(lambda x: self.numeric_labels[x][0])
+            df['defect'] = df['class'].apply(lambda x: self.numeric_labels[x][1])
+            df['fruit'] = df['class'].apply(lambda x: self.numeric_labels[x][2])
 
-        # add the ensemble label to the dataframe
-        df['ensemble'] = df[['fruit', 'ripeness', 'defect']].apply(self.get_ensemble_label, axis=1)
+            # add the ensemble label to the dataframe
+            df['ensemble'] = df[['fruit', 'ripeness', 'defect']].apply(self.get_ensemble_label, axis=1)
 
-        # convert the dataframe to a numpy array
-        label = df.to_numpy()
+            # convert the dataframe to a numpy array
+            label = df.to_numpy()
 
-        # load the image
-        img = cv2.imread(img_path)
+            # load the image
+            img = cv2.imread(img_path)
 
         return img, label
 
