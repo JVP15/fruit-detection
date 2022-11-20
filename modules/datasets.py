@@ -569,7 +569,7 @@ class TestDataset(Dataset):
 
     def __getitem__(self, idx):
         """This function returns the image (as a BGR np.array, not a file path like the other datasets) and a label.
-        By default, the label is a numpy array where each row is a bounding box and each column is the following:
+        By default, the label is a list of dicts a bounding box and each column is the following:
         [class, x, y, width, height, fruit, ripeness, defect, ensemble_label].
         x and y are the upper left hand corner, and x, y, w, and h are all normalized coordinates.
 
@@ -600,10 +600,12 @@ class TestDataset(Dataset):
             df['ensemble'] = df[['fruit', 'ripeness', 'defect']].apply(self.get_ensemble_label, axis=1)
 
             # convert the dataframe to a numpy array
-            label = df.to_numpy()
+            label = df.to_dict('records')
 
             # load the image
             img = cv2.imread(img_path)
+            # convert to rgb
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         return img, label
 
