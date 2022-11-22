@@ -2,6 +2,8 @@ import os
 import zipfile
 import tarfile
 import shutil
+import random
+
 import cv2
 
 import numpy as np
@@ -13,6 +15,8 @@ from tqdm import tqdm
 import xml.etree.ElementTree as ET
 
 from torch.utils.data import Dataset, ConcatDataset
+
+from modules.preprocessor import localize_fruit
 
 DATASET_DIR = os.path.join('..', 'dataset') # by default, the datasets are saved in the 'dataset' folder.
 
@@ -514,7 +518,7 @@ class DefectDataset(Dataset):
         print('Defect Dataset cleaned.')
 
 
-class TestDataset(Dataset):
+class EnsembleDataset(Dataset):
     """This dataset is used to evaluate the overall performance of Deep Fruit Vision. It is stored as a
     Yolo-v5 dataset, so we have to extract the fruit, ripeness, and defect labels from the number.
     This dataset is also used to calculate the accuracy for the entire ensemble model."""
@@ -535,20 +539,20 @@ class TestDataset(Dataset):
                       (0, 1, 0), (0, 1, 2), (0, 1, 1),
                       (0, 0, 0), (0, 0, 2), (0, 0, 1)]
 
-    def __init__(self, dataset_dir=DATASET_DIR, for_yolov5_eval=False):
-        self.for_yolov5_eval = for_yolov5_eval
+    def __init__(self, dataset_dir=DATASET_DIR, for_yolov5=False):
+        self.for_yolov5 = for_yolov5
 
         self.dataset_dir = dataset_dir
-        self.test_dir = os.path.join(self.dataset_dir, 'test_dataset')
-        self.zip_file = os.path.join(self.dataset_dir, 'test_dataset.zip')
+        self.test_dir = os.path.join(self.dataset_dir, 'ensemble_dataset')
+        self.zip_file = os.path.join(self.dataset_dir, 'ensemble_dataset.zip')
 
         if not os.path.exists(self.test_dir):
             os.makedirs(self.test_dir)
 
             if not os.path.exists(self.zip_file):
-                raise FileNotFoundError('Test dataset not found. You must manually download it, rename it "test_dataset.zip", and place it in the datasets folder.')
+                raise FileNotFoundError('Ensemble dataset not found. You must manually download it, rename it "ensemble_dataset.zip", and place it in the datasets folder.')
 
-            extract_dataset('Test', self.zip_file, self.test_dir)
+            extract_dataset('Ensemble', self.zip_file, self.test_dir)
 
         self.imgs = list_files(self.test_dir, 'images')
         self.labels = list_files(self.test_dir, 'labels')
@@ -565,7 +569,7 @@ class TestDataset(Dataset):
             return 2 # otherwise, return 'harvestable fruit' (2)
 
     def __len__(self):
-        return len(self.imgs)
+       return len(self.imgs)
 
     def __getitem__(self, idx):
         """This function returns the image (as a BGR np.array, not a file path like the other datasets) and a label.
@@ -573,7 +577,7 @@ class TestDataset(Dataset):
         [class, x, y, width, height, fruit, ripeness, defect, ensemble_label].
         x and y are the upper left hand corner, and x, y, w, and h are all normalized coordinates.
 
-        But, when for_yolov5_eval is True, the label is just like any other detection dataset, and the img is a file path.
+        But, when for_yolov5 is True, the label is just like any other detection dataset, and the img is a file path.
         This is useful for evaluating the YOLOv5 model on the test dataset."""
 
         img_path = os.path.join(self.test_dir, 'images', self.imgs[idx])
@@ -582,7 +586,7 @@ class TestDataset(Dataset):
         # read the label file into a pandas dataframe
         df = pd.read_csv(label_path, sep=' ', header=None, names=['class', 'x', 'y', 'w', 'h'])
 
-        if self.for_yolov5_eval:
+        if self.for_yolov5:
             df['class'] = df['class'].apply(lambda x: self.numeric_labels[x][2])
             label = df
             img = img_path
@@ -608,6 +612,66 @@ class TestDataset(Dataset):
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         return img, label
+
+
+class ClassificationEnsembleDataset(EnsembleDataset):
+    """This is an extension of the EnsembleDataset class that we use to generate images to fine-tune the
+    ripeness and defect models on. It returns a localized image of the fruit and the label (either for ripeness
+    or defect models). """
+    def __init__(self, dataset_dir=DATASET_DIR, for_yolov5_eval=False, seed=None, label_type='ripeness'):
+        super().__init__(dataset_dir, for_yolov5_eval)
+        self.label_type = label_type
+
+        # the ensemble model gives us whole images with bounding box labels, but we want localized images. We would just
+        #  dynamically load images from the disk, but unless we load all of the bounding boxes ahead of time, we won't know how many
+        #  localized fruit we have, so we'll just have to load all of the images in now
+
+        self.localized_imgs = []
+        self.localized_labels = []
+
+        self._fill_dataset()
+
+    def _fill_dataset(self):
+        for i in range(super().__len__()):
+            img, label = super().__getitem__(i)
+
+            for box in label: # add an xmin, xman, ymin, and ymax element to each bounding box dict (for preprocessor to localize images)
+                box['xmin'] = box['x']
+                box['xmax'] = box['x'] + box['w']
+                box['ymin'] = box['y']
+                box['ymax'] = box['y'] + box['h']
+
+            localized_fruits = localize_fruit(img, label, min_bounding_box_size=.1) # min_bounding_box_size should be a hyperparam, but we'll just hardcode it for now
+
+            num_fruit_large_enough = 0
+            for box in label:
+                if not box['small']:
+                    # lots of ugly things here. The preprocessor returns a stack of tf.tensors to speed up ripeness/detect inference,
+                    # but this class is just here so that we can save the images to disk, so we have to convert it back to numpy,
+                    # and then change the color to BGR for opencv to write it properly
+                    # we also have to convert it back to 0-255 int range
+                    localized_fruit = cv2.cvtColor(localized_fruits[num_fruit_large_enough].numpy(), cv2.COLOR_BGR2RGB)
+                    localized_fruit = (localized_fruit * 255).astype(np.uint8)
+                    self.localized_imgs.append(localized_fruit)
+                    self.localized_labels.append(box)
+                    num_fruit_large_enough += 1
+
+    def __len__(self):
+        return len(self.localized_imgs)
+
+    def __getitem__(self, idx):
+        img = self.localized_imgs[idx]
+        label = self.localized_labels[idx]
+
+        if self.label_type == 'ripeness':
+            label = label['ripeness']
+        elif self.label_type == 'defect':
+            label = label['defect']
+        else:
+            raise ValueError('label_type must be either "ripeness" or "defect"')
+
+        return img, label
+
 
 if __name__ == '__main__':
     image_train_dir = os.path.join(DATASET_DIR, 'images', 'train')

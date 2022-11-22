@@ -1,0 +1,13 @@
+# Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+path: ../dataset  # dataset root dir
+train: yolov5_fine_tune/images  # train images (relative to 'path') 128 images
+val: yolov5_fine_tune/val/images  # val images (relative to 'path') 128 images
+test: deepfruitvision_eval/images # test images for the ensemble model
+
+# Classes
+nc: 3  # number of classes
+names: [ 'apple', 'papaya', 'mango']  # class names
+
+
+
+
