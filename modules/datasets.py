@@ -8,6 +8,7 @@ import cv2
 
 import numpy as np
 import pandas as pd
+import torch.utils.data
 import wget
 from PIL import Image
 from tqdm import tqdm
@@ -614,26 +615,23 @@ class EnsembleDataset(Dataset):
         return img, label
 
 
-class ClassificationEnsembleDataset(EnsembleDataset):
-    """This is an extension of the EnsembleDataset class that we use to generate images to fine-tune the
-    ripeness and defect models on. It returns a localized image of the fruit and the label (either for ripeness
-    or defect models). """
-    def __init__(self, dataset_dir=DATASET_DIR, for_yolov5_eval=False, seed=None, label_type='ripeness'):
-        super().__init__(dataset_dir, for_yolov5_eval)
+class ClassificationWrapper(Dataset):
+    """This is a wrapper for the EnsembleDataset (or any dataset that has yolo-v5 labels in addition to classification labels).
+    Each element is a localized image of the fruit and the label (either for ripeness or defect models)."""
+
+    def __init__(self, dataset : Dataset, dataset_dir=DATASET_DIR, label_type='ripeness'):
         self.label_type = label_type
 
         # the ensemble model gives us whole images with bounding box labels, but we want localized images. We would just
         #  dynamically load images from the disk, but unless we load all of the bounding boxes ahead of time, we won't know how many
         #  localized fruit we have, so we'll just have to load all of the images in now
-
         self.localized_imgs = []
         self.localized_labels = []
 
-        self._fill_dataset()
+        self._localize_dataset(dataset)
 
-    def _fill_dataset(self):
-        for i in range(super().__len__()):
-            img, label = super().__getitem__(i)
+    def _localize_dataset(self, dataset):
+        for img, label in dataset:
 
             for box in label: # add an xmin, xman, ymin, and ymax element to each bounding box dict (for preprocessor to localize images)
                 box['xmin'] = box['x']

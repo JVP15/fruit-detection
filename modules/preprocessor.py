@@ -80,16 +80,6 @@ def localize_fruit(frame: np.ndarray, bounding_boxes: List[dict], min_bounding_b
         # get the cropped image
         cropped_image = frame[ymin:ymax, xmin:xmax]
 
-        # cropped_w, cropped_h = xmin - xmax, ymin - ymax
-        #
-        # # pad the image with white pixels to make it square
-        # if cropped_w > cropped_h:
-        #     pad = (cropped_w - cropped_h) // 2
-        #     cropped_image = cv2.copyMakeBorder(cropped_image, pad, pad, 0, 0, cv2.BORDER_CONSTANT, value=[0, 0, 0])
-        # elif cropped_h > cropped_w:
-        #     pad = (cropped_h - cropped_w) // 2
-        #     cropped_image = cv2.copyMakeBorder(cropped_image, 0, 0, pad, pad, cv2.BORDER_CONSTANT, value=[0, 0, 0])
-
         # resize the image to the size that the disease and ripeness models expect
         cropped_image = cv2.resize(cropped_image, LOCALIZED_IMAGE_SIZE)
 
