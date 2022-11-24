@@ -47,8 +47,8 @@ class DeepFruitVision:
         # keep track of the index of the ripeness and disease predictions separately b/c some bounding boxes may be too small
         prediction_index = 0
 
-        def add_ripeness_and_defect(bounding_box):
-            nonlocal prediction_index
+        # add the ripeness and defect predictions to the bounding boxes
+        for bounding_box in bounding_boxes:
             if bounding_box['small']:
                 bounding_box['ripeness'] = None
                 bounding_box['defect'] = None
@@ -56,11 +56,6 @@ class DeepFruitVision:
                 bounding_box['ripeness'] = ripeness_predictions[prediction_index]
                 bounding_box['defect'] = defect_predictions[prediction_index]
                 prediction_index += 1
-
-            return bounding_box
-
-        # add the ripeness and defect predictions to the bounding boxes
-        bounding_boxes = list(map(add_ripeness_and_defect, bounding_boxes))
 
         return bounding_boxes
 
