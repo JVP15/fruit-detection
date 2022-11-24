@@ -562,9 +562,9 @@ class EnsembleDataset(Dataset):
         """This function takes a tuple of (fruit, ripeness, defect) numeric labels and returns a numeric value
         corresponding to an ensemble label. The logic her follows the same logic as the ensemble model."""
 
-        if label[1] == 0: # if the fruit is defective, return 'defective fruit' (0)
+        if label[2] == 0: # if the fruit is defective, return 'defective fruit' (0)
             return 0
-        elif label[0] == 0: # if the fruit is unripe, return 'unripe fruit' (1)
+        elif label[1] == 0: # if the fruit is unripe, return 'unripe fruit' (1)
             return 1
         else:
             return 2 # otherwise, return 'harvestable fruit' (2)
@@ -639,7 +639,7 @@ class ClassificationWrapper(Dataset):
                 box['ymin'] = box['y']
                 box['ymax'] = box['y'] + box['h']
 
-            localized_fruits = localize_fruit(img, label, min_bounding_box_size=.1) # min_bounding_box_size should be a hyperparam, but we'll just hardcode it for now
+            localized_fruits = localize_fruit(img, label, min_bounding_box_size=.01) # we want to include most of the fruits for training, even if it is small
 
             num_fruit_large_enough = 0
             for box in label:
@@ -647,9 +647,11 @@ class ClassificationWrapper(Dataset):
                     # lots of ugly things here. The preprocessor returns a stack of tf.tensors to speed up ripeness/detect inference,
                     # but this class is just here so that we can save the images to disk, so we have to convert it back to numpy,
                     # and then change the color to BGR for opencv to write it properly
-                    # we also have to convert it back to 0-255 int range
-                    localized_fruit = cv2.cvtColor(localized_fruits[num_fruit_large_enough].numpy(), cv2.COLOR_BGR2RGB)
-                    localized_fruit = (localized_fruit * 255).astype(np.uint8)
+                    localized_img = localized_fruits[num_fruit_large_enough]
+                    localized_img = localized_img.numpy()
+
+                    localized_fruit = cv2.cvtColor(localized_img, cv2.COLOR_BGR2RGB)
+
                     self.localized_imgs.append(localized_fruit)
                     self.localized_labels.append(box)
                     num_fruit_large_enough += 1

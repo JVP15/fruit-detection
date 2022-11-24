@@ -84,7 +84,7 @@ def localize_fruit(frame: np.ndarray, bounding_boxes: List[dict], min_bounding_b
         cropped_image = cv2.resize(cropped_image, LOCALIZED_IMAGE_SIZE)
 
         # normalize the image and convert to float32
-        cropped_image = cropped_image.astype(np.float32) / 255.0
+        cropped_image = cropped_image.astype(np.float32)
 
         # add to the list of localized fruits
         localized_fruits.append(cropped_image)
