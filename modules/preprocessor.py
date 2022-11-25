@@ -89,7 +89,7 @@ def localize_fruit(frame: np.ndarray, bounding_boxes: List[dict], min_bounding_b
         # add to the list of localized fruits
         localized_fruits.append(cropped_image)
 
-    # stack all of the images into a single tensor
+    # stack all the images into a single tensor
     localized_fruits = tf.stack(localized_fruits)
 
     return localized_fruits
