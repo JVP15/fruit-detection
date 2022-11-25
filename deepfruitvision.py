@@ -60,7 +60,7 @@ class DeepFruitVision:
         return bounding_boxes
 
     def get_harvestability(self, frame):
-        """This function takes a frame and returns a list of bounding boxes (represented by a dictionary) that have a class,
+        """This function takes a frame (in RGB) and returns a list of bounding boxes (represented by a dictionary) that have a class,
         a bounding box, a ripeness prediction, defect prediction, and harvestability prediction.
         The bounding boxes are in the format 'xmin', 'ymin', 'xmax', 'ymax', with normalized values like yolo-v5, and they also have a corresponding 'conf' value.
         Each bounding box also has a 'small' key that is True if the bounding box is too small to make an accurate prediction about the harvestability

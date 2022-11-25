@@ -573,7 +573,7 @@ class EnsembleDataset(Dataset):
        return len(self.imgs)
 
     def __getitem__(self, idx):
-        """This function returns the image (as a BGR np.array, not a file path like the other datasets) and a label.
+        """This function returns the image (as an RGB np.array, not a file path like the other datasets) and a label.
         By default, the label is a list of dicts a bounding box and each column is the following:
         [class, x, y, width, height, fruit, ripeness, defect, ensemble_label].
         x and y are the upper left hand corner, and x, y, w, and h are all normalized coordinates.

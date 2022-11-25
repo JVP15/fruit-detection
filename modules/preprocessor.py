@@ -50,8 +50,8 @@ def preprocess_frame_for_detection(frame):
     """Preprocesses the frame for Yolo-v5 inference"""
     # right now, we are loading the Yolo-v5 model with Autoshape, so there isn't much to preprocess
 
-    # convert to RGB and uint8
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).astype(np.uint8)
+    # convert to RGB
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     return frame
 
 def localize_fruit(frame: np.ndarray, bounding_boxes: List[dict], min_bounding_box_size) -> tf.Tensor:
@@ -95,7 +95,8 @@ def localize_fruit(frame: np.ndarray, bounding_boxes: List[dict], min_bounding_b
     return localized_fruits
 
 def prepare_output_frame(input_frame, bounding_boxes, ui='confidence'):
-    frame = input_frame.copy()
+    # PySimpleGUI expects BGR, but DeepFruitVision uses RGB, so we have to convert the input frame to BGR
+    frame = cv2.cvtColor(input_frame, cv2.COLOR_RGB2BGR)
     h, w, _ = frame.shape
 
     # loop through the bounding boxes and draw them

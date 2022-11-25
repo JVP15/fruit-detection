@@ -9,8 +9,8 @@ from modules.view import View
 
 DEFAULT_SOURCE = None
 DEFAULT_DETECTION_WEIGHTS = 'weights/detection/best_classification.pt'
-DEFAULT_RIPENESS_WEIGHTS = 'weights/ripeness/ripeness_model_fine_tuned_en2'
-DEFAULT_DEFECT_WEIGHTS = 'weights/defect/defect_model_fine_tuned_en2'
+DEFAULT_RIPENESS_WEIGHTS = 'weights/ripeness/ripeness_model_fine_tuned'
+DEFAULT_DEFECT_WEIGHTS = 'weights/defect/defect_model_fine_tuned'
 DEFAULT_MIN_BOUNDING_BOX_SIZE = 0.1
 DEFAULT_GUI = False
 DEFAULT_DISPLAY = 'confidence'
@@ -55,8 +55,10 @@ def run(source = DEFAULT_SOURCE,
         # this part of the program handles reading the frame and making predictions
         if source is not None:
             # if the source is an image, we only need to read and predict using it once
-            if mimetypes.guess_type(source)[0].startswith('image'):
+            # (mimetypes doesn't work with webp images, but openCV can read them, so we need to make an exception for them)
+            if source.endswith('.webp') or mimetypes.guess_type(source)[0].startswith('image'):
                 frame = cv2.imread(source)
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # we need to convert the frame to RGB for the model
 
                 if bounding_boxes is None:
                     bounding_boxes = deep_fruit_vision.get_harvestability(frame)
@@ -75,6 +77,7 @@ def run(source = DEFAULT_SOURCE,
                 elif not ret:
                     break
 
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # we need to convert the frame to RGB for the model
                 bounding_boxes = deep_fruit_vision.get_harvestability(frame)
 
         # this part is exlusive to the GUI
