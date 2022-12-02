@@ -25,9 +25,13 @@ python datasets.py
 ```
 
 However, there are some datasets that need to be manually downloaded from Google Drive and renamed to the correct name. These are:
+
 [Papaya Dataset](https://drive.google.com/file/d/1lg1gM_CtZGsGUrHeY8aZmrl3drG66kxX/view?usp=sharing)
+
 [Ripeness Dataset](https://drive.google.com/drive/folders/1ZXSaUBMtR-nymOY-WaAz-iY3e-i2xoPf?usp=sharing) (rename to `ripeness_dataset.zip`)
+
 [Defect Dataset](https://drive.google.com/drive/folders/1s7GP9iYfF5wgv1AmFbai2TqUHaUpMntG?usp=share_link) (rename to `defect_dataset.zip`)
+
 [Ensemble Dataset](https://drive.google.com/file/d/1cjEaQInMgdh9cRaFhatao0FQP0Ar3dYV/view?usp=share_link)
 
 ## Running the Program
