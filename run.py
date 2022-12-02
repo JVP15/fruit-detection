@@ -112,12 +112,12 @@ def run(source = DEFAULT_SOURCE,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--source', default=DEFAULT_SOURCE, help='Path to video file or camera index')
+    parser.add_argument('--source', default=DEFAULT_SOURCE, help='Path to video file or camera index (required if you are not using the GUI)')
     parser.add_argument('--detection-weights', default=DEFAULT_DETECTION_WEIGHTS, help='Path to detection weights')
     parser.add_argument('--ripeness-weights', default=DEFAULT_RIPENESS_WEIGHTS, help='Path to ripeness weights')
     parser.add_argument('--disease-weights', default=DEFAULT_DEFECT_WEIGHTS, help='Path to disease weights')
-    parser.add_argument('--min-bounding-box-size', default=DEFAULT_MIN_BOUNDING_BOX_SIZE, help='Minimum size of a bounding box before it is checked for ripeness and diseases')
-    parser.add_argument('--use_gui', action='store_true', help='whether to use the gui or not')
+    parser.add_argument('--min-bounding-box-size', type=float, default=DEFAULT_MIN_BOUNDING_BOX_SIZE, help='Minimum size of a bounding box before it is checked for ripeness and diseases')
+    parser.add_argument('--use-gui', action='store_true', help='whether to use the gui or not, if you are not, then you do not need to specify a source')
     args = parser.parse_args()
 
     run(**vars(args))

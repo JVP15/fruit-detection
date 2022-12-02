@@ -7,7 +7,7 @@ class View:
                 ['&View', ['!Confidence View', 'Harvestability View']]
                 ]
     width = 800
-    height = 800
+    height = 600
 
     def __init__(self):
         sg.theme('light green')
@@ -28,15 +28,10 @@ class View:
             [sg.VPush()],
             [sg.Menu(self.menu_def, tearoff=False, pad=(200, 1), key='--MENU--')],
         ]
-        self.window = sg.Window('Fruit Detection', layout, size=(self.width, self.height), element_justification='c')
+        self.window = sg.Window('Deep Fruit Vision', layout, size=(self.width, self.height), element_justification='c')
         _, _ = self.window.read(timeout=13)
 
     def update_image(self, img):
-        # resize the image if it is too big, preserving aspect ratio
-        if img.shape[0] > self.height or img.shape[1] > self.width:
-            scale = min(self.height / img.shape[0], self.width / img.shape[1])
-            img = cv2.resize(img, (0, 0), fx=scale, fy=scale)
-
         imgbytes = cv2.imencode('.png', img)[1].tobytes()
 
         if not self.has_image:

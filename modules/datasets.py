@@ -376,7 +376,8 @@ class MangoYoloDataset(Dataset):
 
 class PapayaDataset(Dataset):
     """
-    Dataset class that represents the Papaya dataset. Todo: find a place to host it
+    Dataset class that represents the Papaya dataset.
+    It can be downloaded from https://drive.google.com/file/d/1lg1gM_CtZGsGUrHeY8aZmrl3drG66kxX/view?usp=sharing
     """
 
     def __init__(self, dataset_dir=DATASET_DIR):
@@ -384,9 +385,11 @@ class PapayaDataset(Dataset):
         self.papaya_dir = os.path.join(self.dataset_dir, 'papaya_object_detection')
         self.zip_file = os.path.join(self.dataset_dir, 'papaya_object_detection.zip')
 
+        self.gdrive_link = 'https://drive.google.com/file/d/1lg1gM_CtZGsGUrHeY8aZmrl3drG66kxX/view?usp=sharing'
+
         if not os.path.exists(self.papaya_dir):
             if not os.path.exists(self.zip_file):
-                raise FileNotFoundError('Papaya dataset not found. You must manually download it, rename it "papaya_object_detection.zip", and place it in the datasets folder.')
+                raise FileNotFoundError(f'Papaya dataset not found. You must manually download it {self.gdrive_link} and place it in the datasets folder.')
 
             extract_dataset('Papaya', self.zip_file, self.dataset_dir)
 
@@ -418,7 +421,7 @@ class RipenessDataset(Dataset):
     """
     This dataset acts as a Pytorch interface for the ripeness dataset.
     It can be accessed by downloading this folder from Google Drive:
-    https://drive.google.com/drive/folders/1s7GP9iYfF5wgv1AmFbai2TqUHaUpMntG?usp=sharing
+    https://drive.google.com/drive/folders/1ZXSaUBMtR-nymOY-WaAz-iY3e-i2xoPf?usp=sharing
     and renaming the .zip file to 'ripeness_dataset.zip' and placing it in the datasets folder.
     """
 
@@ -428,11 +431,13 @@ class RipenessDataset(Dataset):
         self.ripeness_dir = os.path.join(self.data_dir, 'data')
         self.zip_file = os.path.join(self.dataset_dir, 'ripeness_dataset.zip')
 
+        self.gdrive_folder = 'https://drive.google.com/drive/folders/1ZXSaUBMtR-nymOY-WaAz-iY3e-i2xoPf?usp=sharing'
+
         if not os.path.exists(self.ripeness_dir):
             os.makedirs(self.ripeness_dir)
 
             if not os.path.exists(self.zip_file):
-                raise FileNotFoundError('Ripeness dataset not found. You must manually download it, rename it "ripeness_dataset.zip", and place it in the datasets folder.')
+                raise FileNotFoundError(f'Ripeness dataset not found. You must manually download it from {self.gdrive_folder}, rename it "ripeness_dataset.zip", and place it in the datasets folder.')
 
             extract_dataset('Ripeness', self.zip_file, self.data_dir)
 
@@ -475,7 +480,7 @@ class DefectDataset(Dataset):
     """
     This dataset acts as a Pytorch interface for the ripeness dataset.
     It can be accessed by downloading this folder from Google Drive:
-    https://drive.google.com/drive/folders/1s7GP9iYfF5wgv1AmFbai2TqUHaUpMntG?usp=sharing
+    https://drive.google.com/drive/folders/1s7GP9iYfF5wgv1AmFbai2TqUHaUpMntG?usp=share_link
     and renaming the .zip file to 'defect_dataset.zip' and placing it in the datasets folder.
     """
 
@@ -485,11 +490,13 @@ class DefectDataset(Dataset):
         self.defect_dir = os.path.join(self.data_dir, 'dataset_for_all_3_fruits')
         self.zip_file = os.path.join(self.dataset_dir, 'defect_dataset.zip')
 
+        self.gdrive_link = 'https://drive.google.com/drive/folders/1s7GP9iYfF5wgv1AmFbai2TqUHaUpMntG?usp=share_link'
+
         if not os.path.exists(self.defect_dir):
             os.makedirs(self.defect_dir)
 
             if not os.path.exists(self.zip_file):
-                raise FileNotFoundError('Defect dataset not found. You must manually download it, rename it "defect_dataset.zip", and place it in the datasets folder.')
+                raise FileNotFoundError(f'Defect dataset not found. You must manually download it from {self.gdrive_link}, rename it "defect_dataset.zip", and place it in the datasets folder.')
 
             extract_dataset('Defect', self.zip_file, self.data_dir)
 
@@ -522,7 +529,9 @@ class DefectDataset(Dataset):
 class EnsembleDataset(Dataset):
     """This dataset is used to evaluate the overall performance of Deep Fruit Vision. It is stored as a
     Yolo-v5 dataset, so we have to extract the fruit, ripeness, and defect labels from the number.
-    This dataset is also used to calculate the accuracy for the entire ensemble model."""
+    This dataset is also used to calculate the accuracy for the entire ensemble model.
+
+    It can be accessed by downloading the .zip file from: https://drive.google.com/file/d/1cjEaQInMgdh9cRaFhatao0FQP0Ar3dYV/view?usp=share_link"""
 
     # we use this to convert the label from 0-11 to the fruit, ripeness, and defect labels in plain text
     # this is the way label studio stores the labels
@@ -547,11 +556,13 @@ class EnsembleDataset(Dataset):
         self.test_dir = os.path.join(self.dataset_dir, 'ensemble_dataset')
         self.zip_file = os.path.join(self.dataset_dir, 'ensemble_dataset.zip')
 
+        self.gdrive_link = 'https://drive.google.com/file/d/1cjEaQInMgdh9cRaFhatao0FQP0Ar3dYV/view?usp=share_link'
+
         if not os.path.exists(self.test_dir):
             os.makedirs(self.test_dir)
 
             if not os.path.exists(self.zip_file):
-                raise FileNotFoundError('Ensemble dataset not found. You must manually download it, rename it "ensemble_dataset.zip", and place it in the datasets folder.')
+                raise FileNotFoundError(f'Ensemble dataset not found. You must manually download it from {self.gdrive_link} and place it in the datasets folder.')
 
             extract_dataset('Ensemble', self.zip_file, self.test_dir)
 

@@ -97,6 +97,12 @@ def localize_fruit(frame: np.ndarray, bounding_boxes: List[dict], min_bounding_b
 def prepare_output_frame(input_frame, bounding_boxes, ui='confidence'):
     # PySimpleGUI expects BGR, but DeepFruitVision uses RGB, so we have to convert the input frame to BGR
     frame = cv2.cvtColor(input_frame, cv2.COLOR_RGB2BGR)
+    # also resize it so that it fits in the 800x600 window for PySimpleGUI (preserving aspect ratio)
+    # resize the image if it is too big, preserving aspect ratio
+    if frame.shape[0] > 600 or frame.shape[1] > 800:
+        scale = min(600 / frame.shape[0], 800 / frame.shape[1])
+        frame = cv2.resize(frame, (0, 0), fx=scale, fy=scale)
+
     h, w, _ = frame.shape
 
     # loop through the bounding boxes and draw them
